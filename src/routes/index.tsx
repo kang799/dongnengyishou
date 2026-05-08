@@ -1,5 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 
@@ -14,11 +13,8 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { user, loading } = useAuth();
-  const nav = useNavigate();
-  useEffect(() => {
-    if (!loading && user) nav({ to: "/pet" });
-  }, [user, loading, nav]);
+  const { user } = useAuth();
+  const startTo = user ? "/pet" : "/auth";
 
   return (
     <div className="relative">
@@ -36,9 +32,9 @@ function Index() {
             登顶三大封神榜。
           </p>
           <div className="flex gap-4">
-            <Link to="/auth">
+            <Link to={startTo}>
               <Button size="lg" className="text-lg px-8 font-display tracking-widest">
-                招神入册
+                开始游戏
               </Button>
             </Link>
             <Link to="/leaderboards">
