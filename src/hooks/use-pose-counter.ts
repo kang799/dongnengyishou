@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type ExerciseType = "squat" | "pushup" | "situp";
 
@@ -57,14 +57,70 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
   const stateRef = useRef<"up" | "down">("up");
   const rafRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const cameraPromiseRef = useRef<Promise<boolean> | null>(null);
+  const cameraGenerationRef = useRef(0);
   const exerciseRef = useRef<ExerciseType>(exercise);
+  const stableRef = useRef({ down: 0, up: 0 });
+  const smoothAnglesRef = useRef<Record<string, number>>({});
+  const lastCountAtRef = useRef(0);
 
   // 切换练习只重置计数，不动摄像头/模型
   useEffect(() => {
     exerciseRef.current = exercise;
     setCount(0);
     stateRef.current = "up";
+    stableRef.current = { down: 0, up: 0 };
+    smoothAnglesRef.current = {};
+    lastCountAtRef.current = 0;
   }, [exercise]);
+
+  const startCamera = useCallback(async () => {
+    try {
+      setError(null);
+      setReady(false);
+      const existing = streamRef.current;
+      if (existing?.getVideoTracks().some((track) => track.readyState === "live")) return true;
+      if (cameraPromiseRef.current) return cameraPromiseRef.current;
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError("当前浏览器不支持摄像头调用");
+        return false;
+      }
+
+      const generation = cameraGenerationRef.current;
+      cameraPromiseRef.current = navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          frameRate: { ideal: 24, max: 30 },
+        },
+        audio: false,
+      }).then(async (stream) => {
+        if (generation !== cameraGenerationRef.current) {
+          stream.getTracks().forEach((track) => track.stop());
+          return false;
+        }
+        streamRef.current = stream;
+        const video = videoRef.current;
+        if (video) {
+          video.srcObject = stream;
+          video.muted = true;
+          video.playsInline = true;
+          await video.play().catch(() => undefined);
+        }
+        return true;
+      });
+
+      return await cameraPromiseRef.current;
+    } catch (e: any) {
+      setReady(false);
+      setError(e?.name === "NotAllowedError" ? "摄像头权限被拒绝，请允许后重试" : e?.message ?? "无法启用摄像头");
+      return false;
+    } finally {
+      cameraPromiseRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     if (!active) return;
@@ -74,38 +130,32 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
 
     (async () => {
       try {
-        // 并行加载模型 + 申请摄像头
-        const [lm, stream] = await Promise.all([
-          getLandmarker(),
-          navigator.mediaDevices.getUserMedia({
-            video: { width: 640, height: 480, facingMode: "user" },
-            audio: false,
-          }),
-        ]);
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        streamRef.current = stream;
+        const lm = await getLandmarker();
+        if (cancelled) return;
+        const cameraReady =
+          streamRef.current?.getVideoTracks().some((track) => track.readyState === "live") ||
+          (await startCamera());
+        if (cancelled || !cameraReady) return;
         const video = videoRef.current!;
-        video.srcObject = stream;
-        await video.play();
+        if (!video.srcObject) video.srcObject = streamRef.current;
+        await video.play().catch(() => undefined);
         setReady(true);
 
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext("2d") ?? null;
         let lastDraw = 0;
+        let lastDetect = 0;
 
         const loop = () => {
           if (cancelled) return;
-          if (video.readyState >= 2) {
+          const now = performance.now();
+          if (video.readyState >= 2 && now - lastDetect > 66) {
+            lastDetect = now;
             const result = lm.detectForVideo(video, performance.now());
             const lms: Landmark[] | undefined = result?.landmarks?.[0];
             if (lms) {
               detect(exerciseRef.current, lms);
-              // 节流绘制：30fps 足够
-              const now = performance.now();
-              if (ctx && canvas && now - lastDraw > 33) {
+              if (ctx && canvas && now - lastDraw > 66) {
                 lastDraw = now;
                 if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
                 if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
@@ -129,12 +179,14 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
 
     return () => {
       cancelled = true;
+      cameraGenerationRef.current += 1;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
       }
+      cameraPromiseRef.current = null;
       const v = videoRef.current;
       if (v) {
         try { v.pause(); } catch {}
@@ -143,22 +195,37 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
       setReady(false);
       // 模型保留在缓存中，下一次启动直接复用
     };
-  }, [active]);
+  }, [active, startCamera]);
 
   // 选可见度更高的一侧测角度，过低则返回 null
   function bestAngle(l: Landmark[], rA: number, rB: number, rC: number, lA: number, lB: number, lC: number) {
     const visR = Math.min(l[rA]?.visibility ?? 0, l[rB]?.visibility ?? 0, l[rC]?.visibility ?? 0);
     const visL = Math.min(l[lA]?.visibility ?? 0, l[lB]?.visibility ?? 0, l[lC]?.visibility ?? 0);
     const best = visR >= visL ? { v: visR, a: l[rA], b: l[rB], c: l[rC] } : { v: visL, a: l[lA], b: l[lB], c: l[lC] };
-    if (best.v < 0.5) return null;
+    if (best.v < 0.42) return null;
     return angle(best.a, best.b, best.c);
   }
 
-  // 简单时间锁，避免抖动重复计数（每次计数最少间隔 350ms）
-  const lastCountAtRef = useRef(0);
+  function smoothAngle(key: string, value: number) {
+    const prev = smoothAnglesRef.current[key];
+    const next = prev == null ? value : prev * 0.65 + value * 0.35;
+    smoothAnglesRef.current[key] = next;
+    return next;
+  }
+
+  function confirmPose(target: "up" | "down", matched: boolean) {
+    if (!matched) {
+      stableRef.current[target] = 0;
+      return false;
+    }
+    stableRef.current[target] += 1;
+    return stableRef.current[target] >= 2;
+  }
+
+  // 简单时间锁，避免抖动重复计数（每次计数最少间隔 650ms）
   function tryCount() {
     const now = performance.now();
-    if (now - lastCountAtRef.current < 350) return false;
+    if (now - lastCountAtRef.current < 650) return false;
     lastCountAtRef.current = now;
     setCount((c) => c + 1);
     return true;
@@ -167,36 +234,50 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
   function detect(ex: ExerciseType, l: Landmark[]) {
     if (ex === "squat") {
       // 髋-膝-踝
-      const knee = bestAngle(l, 24, 26, 28, 23, 25, 27);
+      const rawKnee = bestAngle(l, 24, 26, 28, 23, 25, 27);
+      const knee = rawKnee == null ? null : smoothAngle("knee", rawKnee);
       if (knee == null) return;
-      // 同时要求髋部明显下沉（髋低于一定高度变化量）以减少误判
-      if (stateRef.current === "up" && knee < 95) stateRef.current = "down";
-      else if (stateRef.current === "down" && knee > 165) {
+      const hipY = ((l[23]?.y ?? 0) + (l[24]?.y ?? 0)) / 2;
+      const kneeY = ((l[25]?.y ?? 0) + (l[26]?.y ?? 0)) / 2;
+      const downPose = knee < 108 && hipY > kneeY - 0.2;
+      const upPose = knee > 158 && hipY < kneeY - 0.16;
+      if (stateRef.current === "up" && confirmPose("down", downPose)) {
+        stateRef.current = "down";
+        stableRef.current.up = 0;
+      } else if (stateRef.current === "down" && confirmPose("up", upPose)) {
         stateRef.current = "up";
+        stableRef.current.down = 0;
         tryCount();
       }
     } else if (ex === "pushup") {
       // 肩-肘-腕
-      const elbow = bestAngle(l, 12, 14, 16, 11, 13, 15);
+      const rawElbow = bestAngle(l, 12, 14, 16, 11, 13, 15);
+      const elbow = rawElbow == null ? null : smoothAngle("elbow", rawElbow);
       if (elbow == null) return;
       // 要求身体大致水平：肩与髋 y 接近
       const shoulderY = ((l[11]?.y ?? 0) + (l[12]?.y ?? 0)) / 2;
       const hipY = ((l[23]?.y ?? 0) + (l[24]?.y ?? 0)) / 2;
-      if (Math.abs(shoulderY - hipY) > 0.25) return; // 不是俯卧姿态
-      if (stateRef.current === "up" && elbow < 95) stateRef.current = "down";
-      else if (stateRef.current === "down" && elbow > 155) {
+      if (Math.abs(shoulderY - hipY) > 0.32) return; // 不是俯卧姿态
+      if (stateRef.current === "up" && confirmPose("down", elbow < 108)) {
+        stateRef.current = "down";
+        stableRef.current.up = 0;
+      } else if (stateRef.current === "down" && confirmPose("up", elbow > 150)) {
         stateRef.current = "up";
+        stableRef.current.down = 0;
         tryCount();
       }
     } else if (ex === "situp") {
       // 肩-髋-膝
-      const hip = bestAngle(l, 12, 24, 26, 11, 23, 25);
+      const rawHip = bestAngle(l, 12, 24, 26, 11, 23, 25);
+      const hip = rawHip == null ? null : smoothAngle("hip", rawHip);
       if (hip == null) return;
-      if (stateRef.current === "up" && hip < 75) {
+      if (stateRef.current === "up" && confirmPose("down", hip > 132)) {
         stateRef.current = "down";
-        tryCount();
-      } else if (stateRef.current === "down" && hip > 135) {
+        stableRef.current.up = 0;
+      } else if (stateRef.current === "down" && confirmPose("up", hip < 88)) {
         stateRef.current = "up";
+        stableRef.current.down = 0;
+        tryCount();
       }
     }
   }
@@ -204,7 +285,10 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
   function reset() {
     setCount(0);
     stateRef.current = "up";
+    stableRef.current = { down: 0, up: 0 };
+    smoothAnglesRef.current = {};
+    lastCountAtRef.current = 0;
   }
 
-  return { videoRef, canvasRef, count, ready, error, reset };
+  return { videoRef, canvasRef, count, ready, error, reset, startCamera };
 }

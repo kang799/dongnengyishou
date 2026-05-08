@@ -23,7 +23,7 @@ function TrainPage() {
   const nav = useNavigate();
   const [active, setActive] = useState(false);
   const [exercise, setExercise] = useState<ExerciseType>("squat");
-  const { videoRef, canvasRef, count, ready, error, reset } = usePoseCounter(exercise, active);
+  const { videoRef, canvasRef, count, ready, error, reset, startCamera } = usePoseCounter(exercise, active);
   const lastSyncedRef = useRef(0);
   const flushTimerRef = useRef<number | null>(null);
 
@@ -84,6 +84,7 @@ function TrainPage() {
   function start() {
     lastSyncedRef.current = 0;
     reset();
+    void startCamera();
     setActive(true);
   }
   function stop() {
@@ -158,7 +159,7 @@ function TrainPage() {
 
         <div className="flex gap-3 mt-4 justify-center">
           {!active ? (
-            <Button size="lg" onClick={start} className="font-display tracking-widest text-lg px-10">
+            <Button size="lg" onPointerDown={() => void startCamera()} onClick={start} className="font-display tracking-widest text-lg px-10">
               启动修行
             </Button>
           ) : (
