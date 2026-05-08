@@ -25,6 +25,8 @@ function PetPage() {
   const [pet, setPet] = useState<Pet | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [busy, setBusy] = useState(false);
+  const [fetching, setFetching] = useState(true);
+  const [fetchErr, setFetchErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) nav({ to: "/auth" });
@@ -32,12 +34,50 @@ function PetPage() {
 
   async function load() {
     if (!user) return;
-    const [{ data: p }, { data: pr }] = await Promise.all([
-      supabase.from("pets").select("*").eq("user_id", user.id).maybeSingle(),
-      supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
-    ]);
-    if (p) setPet(p as Pet);
-    if (pr) setProfile(pr as Profile);
+    setFetching(true);
+    setFetchErr(null);
+    try {
+      // 触发器在 signup 时创建 profile/pet，可能会有微小延迟，最多重试 5 次
+      let p: any = null;
+      let pr: any = null;
+      for (let i = 0; i < 5; i++) {
+        const [petRes, profRes] = await Promise.all([
+          supabase.from("pets").select("*").eq("user_id", user.id).maybeSingle(),
+          supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+        ]);
+        if (petRes.error) throw petRes.error;
+        if (profRes.error) throw profRes.error;
+        p = petRes.data;
+        pr = profRes.data;
+        if (p && pr) break;
+        await new Promise((r) => setTimeout(r, 400));
+      }
+      if (!pr) {
+        const { data } = await supabase
+          .from("profiles")
+          .insert({ id: user.id, display_name: user.email?.split("@")[0] ?? "无名氏" })
+          .select()
+          .maybeSingle();
+        pr = data;
+      }
+      if (!p) {
+        const { randomBeast } = await import("@/lib/beasts");
+        const name = randomBeast();
+        const { data } = await supabase
+          .from("pets")
+          .insert({ user_id: user.id, name, species: name })
+          .select()
+          .maybeSingle();
+        p = data;
+      }
+      setPet(p as Pet);
+      setProfile(pr as Profile);
+    } catch (e: any) {
+      console.error("load pet/profile failed", e);
+      setFetchErr(e?.message ?? "加载失败");
+    } finally {
+      setFetching(false);
+    }
   }
 
   useEffect(() => {
@@ -66,8 +106,16 @@ function PetPage() {
     }
   }
 
-  if (loading || !pet || !profile) {
+  if (loading || fetching) {
     return <div className="container mx-auto px-4 py-20 text-center text-muted-foreground">召唤中…</div>;
+  }
+  if (fetchErr || !pet || !profile) {
+    return (
+      <div className="container mx-auto px-4 py-20 text-center space-y-4">
+        <div className="text-secondary">召唤受阻：{fetchErr ?? "未找到异兽"}</div>
+        <Button onClick={load}>重试</Button>
+      </div>
+    );
   }
 
   const threshold = evolutionThreshold(pet.evolution_stage);
