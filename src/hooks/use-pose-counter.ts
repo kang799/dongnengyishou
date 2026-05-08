@@ -57,6 +57,7 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
   const stateRef = useRef<"up" | "down">("up");
   const rafRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const cameraPromiseRef = useRef<Promise<boolean> | null>(null);
   const exerciseRef = useRef<ExerciseType>(exercise);
   const stableRef = useRef({ down: 0, up: 0 });
   const smoothAnglesRef = useRef<Record<string, number>>({});
@@ -78,13 +79,14 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
       setReady(false);
       const existing = streamRef.current;
       if (existing?.getVideoTracks().some((track) => track.readyState === "live")) return true;
+      if (cameraPromiseRef.current) return cameraPromiseRef.current;
 
       if (!navigator.mediaDevices?.getUserMedia) {
         setError("当前浏览器不支持摄像头调用");
         return false;
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
+      cameraPromiseRef.current = navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "user",
           width: { ideal: 640 },
@@ -92,21 +94,25 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
           frameRate: { ideal: 24, max: 30 },
         },
         audio: false,
+      }).then(async (stream) => {
+        streamRef.current = stream;
+        const video = videoRef.current;
+        if (video) {
+          video.srcObject = stream;
+          video.muted = true;
+          video.playsInline = true;
+          await video.play().catch(() => undefined);
+        }
+        return true;
       });
 
-      streamRef.current = stream;
-      const video = videoRef.current;
-      if (video) {
-        video.srcObject = stream;
-        video.muted = true;
-        video.playsInline = true;
-        await video.play().catch(() => undefined);
-      }
-      return true;
+      return await cameraPromiseRef.current;
     } catch (e: any) {
       setReady(false);
       setError(e?.name === "NotAllowedError" ? "摄像头权限被拒绝，请允许后重试" : e?.message ?? "无法启用摄像头");
       return false;
+    } finally {
+      cameraPromiseRef.current = null;
     }
   }, []);
 
@@ -172,6 +178,7 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
       }
+      cameraPromiseRef.current = null;
       const v = videoRef.current;
       if (v) {
         try { v.pause(); } catch {}
