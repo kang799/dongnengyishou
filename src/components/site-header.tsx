@@ -7,6 +7,7 @@ const NAV = [
   { to: "/pet", label: "我的异兽" },
   { to: "/train", label: "修行" },
   { to: "/arena", label: "斗兽台" },
+  { to: "/friends", label: "道友" },
   { to: "/leaderboards", label: "封神榜" },
 ] as const;
 
