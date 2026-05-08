@@ -119,7 +119,9 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
     (async () => {
       try {
         const lm = await getLandmarker();
-        const cameraReady = streamRef.current?.getVideoTracks().some((track) => track.readyState === "live") || await startCamera();
+        const cameraReady =
+          streamRef.current?.getVideoTracks().some((track) => track.readyState === "live") ||
+          (await startCamera());
         if (cancelled || !cameraReady) return;
         const video = videoRef.current!;
         if (!video.srcObject) video.srcObject = streamRef.current;
@@ -268,7 +270,10 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
   function reset() {
     setCount(0);
     stateRef.current = "up";
+    stableRef.current = { down: 0, up: 0 };
+    smoothAnglesRef.current = {};
+    lastCountAtRef.current = 0;
   }
 
-  return { videoRef, canvasRef, count, ready, error, reset };
+  return { videoRef, canvasRef, count, ready, error, reset, startCamera };
 }
