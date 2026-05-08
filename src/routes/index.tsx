@@ -88,6 +88,26 @@ function Index() {
           </ol>
         </div>
       </section>
+
+      <div className="ink-divider container mx-auto" />
+
+      <section className="container mx-auto px-6 py-20">
+        <h2 className="font-display text-4xl text-center mb-2">游戏殿堂</h2>
+        <p className="text-center text-muted-foreground mb-12 tracking-widest">入门之后 · 四殿可游</p>
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Way kanji="兽" title="我的异兽" desc="查看属性、阶位与战绩" stat="属性 · 进化" />
+          <Way kanji="练" title="修行" desc="开启摄像头，运动喂养" stat="深蹲 / 俯卧撑 / 仰卧" />
+          <Way kanji="斗" title="斗兽台 / 道友" desc="挑战他人，结识道友" stat="自动回合制" />
+          <Way kanji="榜" title="封神榜" desc="属性 · 战力 · 打卡三榜" stat="全服争锋" />
+        </div>
+        <div className="text-center mt-12">
+          <Link to={startTo}>
+            <Button size="lg" className="text-lg px-12 font-display tracking-[0.4em]">
+              开 始 游 戏
+            </Button>
+          </Link>
+        </div>
+      </section>
     </div>
   );
 }
