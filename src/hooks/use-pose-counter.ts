@@ -58,6 +58,7 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
   const rafRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const cameraPromiseRef = useRef<Promise<boolean> | null>(null);
+  const cameraGenerationRef = useRef(0);
   const exerciseRef = useRef<ExerciseType>(exercise);
   const stableRef = useRef({ down: 0, up: 0 });
   const smoothAnglesRef = useRef<Record<string, number>>({});
@@ -86,6 +87,7 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
         return false;
       }
 
+      const generation = cameraGenerationRef.current;
       cameraPromiseRef.current = navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "user",
@@ -95,6 +97,10 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
         },
         audio: false,
       }).then(async (stream) => {
+        if (generation !== cameraGenerationRef.current) {
+          stream.getTracks().forEach((track) => track.stop());
+          return false;
+        }
         streamRef.current = stream;
         const video = videoRef.current;
         if (video) {
@@ -125,6 +131,7 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
     (async () => {
       try {
         const lm = await getLandmarker();
+        if (cancelled) return;
         const cameraReady =
           streamRef.current?.getVideoTracks().some((track) => track.readyState === "live") ||
           (await startCamera());
@@ -172,6 +179,7 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
 
     return () => {
       cancelled = true;
+      cameraGenerationRef.current += 1;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
       if (streamRef.current) {
