@@ -54,19 +54,6 @@ function AuthPage() {
     }
   }
 
-  async function google() {
-    try {
-      const path = "@/integrations/lovable/index";
-      const mod: any = await import(/* @vite-ignore */ path);
-      const r = await mod.lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin + "/pet",
-      });
-      if (r?.error) toast.error("Google 登录失败");
-    } catch {
-      toast.error("Google 登录暂未启用，请使用邮箱登录");
-    }
-  }
-
   return (
     <div className="container mx-auto px-4 py-16 max-w-md">
       <div className="ink-card rounded-2xl p-8">
@@ -101,9 +88,6 @@ function AuthPage() {
             {loading ? "施法中…" : mode === "signup" ? "结契" : "入山"}
           </Button>
         </form>
-        <Button onClick={google} variant="outline" className="w-full mt-3 font-display tracking-widest">
-          以 Google 入山
-        </Button>
         <button
           type="button"
           onClick={() => setMode(mode === "signup" ? "signin" : "signup")}
