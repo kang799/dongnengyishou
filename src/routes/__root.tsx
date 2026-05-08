@@ -74,14 +74,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "动能异兽 · 健身宠物对战" },
-      { name: "description", content: "用深蹲、俯卧撑、仰卧起坐喂养你的山海经异兽，争夺三大全服榜单。" },
+      { title: "动能异兽" },
+      { name: "description", content: "用动能喂养你的山海经异兽，争夺三大全服榜单。你每锻炼一次身体，你的异兽就更强" },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "动能异兽 · 健身宠物对战" },
-      { property: "og:description", content: "用真实运动喂养你的山海经异兽" },
+      { property: "og:title", content: "动能异兽" },
+      { property: "og:description", content: "用动能喂养你的山海经异兽，争夺三大全服榜单。你每锻炼一次身体，你的异兽就更强" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:title", content: "动能异兽" },
+      { name: "twitter:description", content: "用动能喂养你的山海经异兽，争夺三大全服榜单。你每锻炼一次身体，你的异兽就更强" },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/19caf978-6c1f-4d05-ad10-0ef5f0a7951a/id-preview-639b27c9--5f197987-8794-4523-bda5-c2a150ed067f.lovable.app-1778260735078.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/19caf978-6c1f-4d05-ad10-0ef5f0a7951a/id-preview-639b27c9--5f197987-8794-4523-bda5-c2a150ed067f.lovable.app-1778260735078.png" },
     ],
     links: [
       {
@@ -121,7 +125,7 @@ function RootComponent() {
           <Outlet />
         </main>
         <footer className="text-center text-xs text-muted-foreground py-6 font-display tracking-widest">
-          · 动能异兽 · 以汗水化神兽 ·
+          · 异兽录 · 以汗水化神兽 ·
         </footer>
       </div>
       <Toaster position="top-center" richColors />
