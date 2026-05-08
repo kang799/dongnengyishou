@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TrainRouteImport } from './routes/train'
 import { Route as PetRouteImport } from './routes/pet'
+import { Route as LeaderboardsRouteImport } from './routes/leaderboards'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ArenaRouteImport } from './routes/arena'
 import { Route as IndexRouteImport } from './routes/index'
@@ -23,6 +24,11 @@ const TrainRoute = TrainRouteImport.update({
 const PetRoute = PetRouteImport.update({
   id: '/pet',
   path: '/pet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LeaderboardsRoute = LeaderboardsRouteImport.update({
+  id: '/leaderboards',
+  path: '/leaderboards',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/arena': typeof ArenaRoute
   '/auth': typeof AuthRoute
+  '/leaderboards': typeof LeaderboardsRoute
   '/pet': typeof PetRoute
   '/train': typeof TrainRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/arena': typeof ArenaRoute
   '/auth': typeof AuthRoute
+  '/leaderboards': typeof LeaderboardsRoute
   '/pet': typeof PetRoute
   '/train': typeof TrainRoute
 }
@@ -60,21 +68,30 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/arena': typeof ArenaRoute
   '/auth': typeof AuthRoute
+  '/leaderboards': typeof LeaderboardsRoute
   '/pet': typeof PetRoute
   '/train': typeof TrainRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/arena' | '/auth' | '/pet' | '/train'
+  fullPaths: '/' | '/arena' | '/auth' | '/leaderboards' | '/pet' | '/train'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/arena' | '/auth' | '/pet' | '/train'
-  id: '__root__' | '/' | '/arena' | '/auth' | '/pet' | '/train'
+  to: '/' | '/arena' | '/auth' | '/leaderboards' | '/pet' | '/train'
+  id:
+    | '__root__'
+    | '/'
+    | '/arena'
+    | '/auth'
+    | '/leaderboards'
+    | '/pet'
+    | '/train'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ArenaRoute: typeof ArenaRoute
   AuthRoute: typeof AuthRoute
+  LeaderboardsRoute: typeof LeaderboardsRoute
   PetRoute: typeof PetRoute
   TrainRoute: typeof TrainRoute
 }
@@ -93,6 +110,13 @@ declare module '@tanstack/react-router' {
       path: '/pet'
       fullPath: '/pet'
       preLoaderRoute: typeof PetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/leaderboards': {
+      id: '/leaderboards'
+      path: '/leaderboards'
+      fullPath: '/leaderboards'
+      preLoaderRoute: typeof LeaderboardsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -123,6 +147,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ArenaRoute: ArenaRoute,
   AuthRoute: AuthRoute,
+  LeaderboardsRoute: LeaderboardsRoute,
   PetRoute: PetRoute,
   TrainRoute: TrainRoute,
 }
