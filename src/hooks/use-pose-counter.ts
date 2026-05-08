@@ -23,18 +23,27 @@ function getLandmarker() {
       const vision = await FilesetResolver.forVisionTasks(
         "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm"
       );
-      return PoseLandmarker.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task",
-          delegate: "GPU",
-        },
-        runningMode: "VIDEO",
+      const modelAssetPath =
+        "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task";
+      const common = {
+        runningMode: "VIDEO" as const,
         numPoses: 1,
-        minPoseDetectionConfidence: 0.6,
-        minPosePresenceConfidence: 0.6,
-        minTrackingConfidence: 0.6,
-      });
+        minPoseDetectionConfidence: 0.5,
+        minPosePresenceConfidence: 0.5,
+        minTrackingConfidence: 0.5,
+      };
+      try {
+        return await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: { modelAssetPath, delegate: "GPU" },
+          ...common,
+        });
+      } catch (gpuErr) {
+        console.warn("PoseLandmarker GPU failed, fallback to CPU", gpuErr);
+        return await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: { modelAssetPath, delegate: "CPU" },
+          ...common,
+        });
+      }
     })().catch((e) => {
       landmarkerPromise = null;
       throw e;
@@ -95,9 +104,9 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
       cameraPromiseRef.current = navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "user",
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          frameRate: { ideal: 24, max: 30 },
+          width: { ideal: 480 },
+          height: { ideal: 360 },
+          frameRate: { ideal: 20, max: 24 },
         },
         audio: false,
       }).then(async (stream) => {
@@ -152,26 +161,30 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
 
         const loop = () => {
           if (cancelled) return;
-          const now = performance.now();
-          if (video.readyState >= 2 && now - lastDetect > 66) {
-            lastDetect = now;
-            const result = lm.detectForVideo(video, performance.now());
-            const lms: Landmark[] | undefined = result?.landmarks?.[0];
-            if (lms) {
-              detect(exerciseRef.current, lms);
-              if (ctx && canvas && now - lastDraw > 66) {
-                lastDraw = now;
-                if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
-                if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "rgba(176, 47, 32, 0.85)";
-                for (const p of lms) {
-                  ctx.beginPath();
-                  ctx.arc(p.x * canvas.width, p.y * canvas.height, 4, 0, Math.PI * 2);
-                  ctx.fill();
+          try {
+            const now = performance.now();
+            if (video.readyState >= 2 && now - lastDetect > 90) {
+              lastDetect = now;
+              const result = lm.detectForVideo(video, performance.now());
+              const lms: Landmark[] | undefined = result?.landmarks?.[0];
+              if (lms) {
+                try { detect(exerciseRef.current, lms); } catch (e) { console.warn("detect error", e); }
+                if (ctx && canvas && now - lastDraw > 90) {
+                  lastDraw = now;
+                  if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
+                  if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
+                  ctx.clearRect(0, 0, canvas.width, canvas.height);
+                  ctx.fillStyle = "rgba(176, 47, 32, 0.85)";
+                  for (const p of lms) {
+                    ctx.beginPath();
+                    ctx.arc(p.x * canvas.width, p.y * canvas.height, 4, 0, Math.PI * 2);
+                    ctx.fill();
+                  }
                 }
               }
             }
+          } catch (e) {
+            console.warn("pose loop frame error", e);
           }
           rafRef.current = requestAnimationFrame(loop);
         };
@@ -264,33 +277,42 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
         return;
       }
 
-      // 上半身模式：用肩膀的下沉量判定
+      // 上半身模式：综合肩膀下沉 + 肩宽变小（人离镜头变远→下蹲常见）
       const lS = l[11], rS = l[12];
       const sVis = Math.min(lS?.visibility ?? 0, rS?.visibility ?? 0);
-      if (sVis < 0.5) return;
+      if (sVis < 0.35) return;
       const rawShoulderY = ((lS?.y ?? 0) + (rS?.y ?? 0)) / 2;
       const shoulderY = smoothAngle("shoulderY", rawShoulderY);
+      const rawShoulderW = Math.hypot((lS?.x ?? 0) - (rS?.x ?? 0), (lS?.y ?? 0) - (rS?.y ?? 0));
+      const shoulderW = smoothAngle("shoulderW", rawShoulderW);
 
-      // 动态基线 = 历史最高位置（y 最小）
+      // 动态基线：站立时的肩 y（最高位）和肩宽
       const base = shoulderBaselineRef.current;
       if (base == null) {
         shoulderBaselineRef.current = shoulderY;
+        smoothAnglesRef.current["shoulderWBase"] = shoulderW;
         baselineSamplesRef.current = 1;
         return;
       }
-      // 站立位变得更高（y 更小）→ 立刻更新基线
       if (shoulderY < base) {
         shoulderBaselineRef.current = shoulderY;
       } else if (stateRef.current === "up") {
-        // 站立态下缓慢漂回基线，吸收姿势微调
-        shoulderBaselineRef.current = base * 0.995 + shoulderY * 0.005;
+        shoulderBaselineRef.current = base * 0.99 + shoulderY * 0.01;
+      }
+      const wBase = smoothAnglesRef.current["shoulderWBase"] ?? shoulderW;
+      if (shoulderW > wBase) {
+        smoothAnglesRef.current["shoulderWBase"] = shoulderW;
+      } else if (stateRef.current === "up") {
+        smoothAnglesRef.current["shoulderWBase"] = wBase * 0.99 + shoulderW * 0.01;
       }
       baselineSamplesRef.current += 1;
-      if (baselineSamplesRef.current < 15) return; // 等基线稳定
+      if (baselineSamplesRef.current < 10) return;
 
       const drop = shoulderY - (shoulderBaselineRef.current ?? shoulderY);
-      const downPose = drop > 0.08;
-      const upPose = drop < 0.025;
+      const widthRatio = shoulderW / (smoothAnglesRef.current["shoulderWBase"] || shoulderW || 1);
+      // 任一信号显著触发：下沉 4% 画面高度，或肩宽缩小到 88% 以下
+      const downPose = drop > 0.04 || widthRatio < 0.88;
+      const upPose = drop < 0.02 && widthRatio > 0.95;
       if (stateRef.current === "up" && confirmPose("down", downPose)) {
         stateRef.current = "down";
         stableRef.current.up = 0;
