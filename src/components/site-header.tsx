@@ -21,7 +21,7 @@ export function SiteHeader() {
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-3">
           <span className="seal text-xl">兽</span>
-          <span className="font-display text-2xl tracking-[0.25em]">异兽录</span>
+          <span className="font-display text-2xl tracking-[0.25em]">动能异兽</span>
         </Link>
         {user && (
           <nav className="hidden md:flex items-center gap-1">

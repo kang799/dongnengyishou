@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { randomBeast } from "@/lib/beasts";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "招神入册 · 异兽录" }] }),
+  head: () => ({ meta: [{ title: "招神入册 · 动能异兽" }] }),
   component: AuthPage,
 });
 

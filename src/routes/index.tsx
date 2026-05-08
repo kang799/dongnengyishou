@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "异兽录 · 用汗水唤醒山海经神兽" },
+      { title: "动能异兽 · 用汗水唤醒山海经神兽" },
       { name: "description", content: "深蹲、俯卧撑、仰卧起坐喂养你的异兽，争夺三大封神榜。" },
     ],
   }),

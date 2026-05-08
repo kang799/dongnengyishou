@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { STAGE_TITLES, totalAttr } from "@/lib/beasts";
 
 export const Route = createFileRoute("/leaderboards")({
-  head: () => ({ meta: [{ title: "封神榜 · 异兽录" }] }),
+  head: () => ({ meta: [{ title: "封神榜 · 动能异兽" }] }),
   component: Boards,
 });
 
