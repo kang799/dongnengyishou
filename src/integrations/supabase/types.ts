@@ -14,7 +14,126 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      battles: {
+        Row: {
+          challenger_id: string
+          created_at: string
+          defender_id: string
+          id: string
+          log: Json
+          winner_id: string
+        }
+        Insert: {
+          challenger_id: string
+          created_at?: string
+          defender_id: string
+          id?: string
+          log: Json
+          winner_id: string
+        }
+        Update: {
+          challenger_id?: string
+          created_at?: string
+          defender_id?: string
+          id?: string
+          log?: Json
+          winner_id?: string
+        }
+        Relationships: []
+      }
+      exercise_logs: {
+        Row: {
+          created_at: string
+          exercise_type: string
+          id: string
+          reps: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          exercise_type: string
+          id?: string
+          reps: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          exercise_type?: string
+          id?: string
+          reps?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      pets: {
+        Row: {
+          battle_power: number
+          created_at: string
+          evolution_stage: number
+          id: string
+          losses: number
+          name: string
+          species: string
+          speed: number
+          strength: number
+          user_id: string
+          vitality: number
+          wins: number
+        }
+        Insert: {
+          battle_power?: number
+          created_at?: string
+          evolution_stage?: number
+          id?: string
+          losses?: number
+          name: string
+          species: string
+          speed?: number
+          strength?: number
+          user_id: string
+          vitality?: number
+          wins?: number
+        }
+        Update: {
+          battle_power?: number
+          created_at?: string
+          evolution_stage?: number
+          id?: string
+          losses?: number
+          name?: string
+          species?: string
+          speed?: number
+          strength?: number
+          user_id?: string
+          vitality?: number
+          wins?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string
+          id: string
+          last_checkin_date: string | null
+          streak_days: number
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          id: string
+          last_checkin_date?: string | null
+          streak_days?: number
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          id?: string
+          last_checkin_date?: string | null
+          streak_days?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
