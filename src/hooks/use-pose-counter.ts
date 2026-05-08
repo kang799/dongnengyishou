@@ -63,6 +63,8 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
   const stableRef = useRef({ down: 0, up: 0 });
   const smoothAnglesRef = useRef<Record<string, number>>({});
   const lastCountAtRef = useRef(0);
+  const shoulderBaselineRef = useRef<number | null>(null);
+  const baselineSamplesRef = useRef(0);
 
   // 切换练习只重置计数，不动摄像头/模型
   useEffect(() => {
@@ -72,6 +74,8 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
     stableRef.current = { down: 0, up: 0 };
     smoothAnglesRef.current = {};
     lastCountAtRef.current = 0;
+    shoulderBaselineRef.current = null;
+    baselineSamplesRef.current = 0;
   }, [exercise]);
 
   const startCamera = useCallback(async () => {
@@ -233,14 +237,60 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
 
   function detect(ex: ExerciseType, l: Landmark[]) {
     if (ex === "squat") {
-      // 髋-膝-踝
-      const rawKnee = bestAngle(l, 24, 26, 28, 23, 25, 27);
-      const knee = rawKnee == null ? null : smoothAngle("knee", rawKnee);
-      if (knee == null) return;
-      const hipY = ((l[23]?.y ?? 0) + (l[24]?.y ?? 0)) / 2;
-      const kneeY = ((l[25]?.y ?? 0) + (l[26]?.y ?? 0)) / 2;
-      const downPose = knee < 108 && hipY > kneeY - 0.2;
-      const upPose = knee > 158 && hipY < kneeY - 0.16;
+      // 判断下半身是否可见（膝+踝任一侧可见度足够）
+      const kneeVis = Math.max(
+        Math.min(l[25]?.visibility ?? 0, l[27]?.visibility ?? 0),
+        Math.min(l[26]?.visibility ?? 0, l[28]?.visibility ?? 0),
+      );
+      const fullBody = kneeVis >= 0.5;
+
+      if (fullBody) {
+        // 全身模式：髋-膝-踝
+        const rawKnee = bestAngle(l, 24, 26, 28, 23, 25, 27);
+        const knee = rawKnee == null ? null : smoothAngle("knee", rawKnee);
+        if (knee == null) return;
+        const hipY = ((l[23]?.y ?? 0) + (l[24]?.y ?? 0)) / 2;
+        const kneeY = ((l[25]?.y ?? 0) + (l[26]?.y ?? 0)) / 2;
+        const downPose = knee < 108 && hipY > kneeY - 0.2;
+        const upPose = knee > 158 && hipY < kneeY - 0.16;
+        if (stateRef.current === "up" && confirmPose("down", downPose)) {
+          stateRef.current = "down";
+          stableRef.current.up = 0;
+        } else if (stateRef.current === "down" && confirmPose("up", upPose)) {
+          stateRef.current = "up";
+          stableRef.current.down = 0;
+          tryCount();
+        }
+        return;
+      }
+
+      // 上半身模式：用肩膀的下沉量判定
+      const lS = l[11], rS = l[12];
+      const sVis = Math.min(lS?.visibility ?? 0, rS?.visibility ?? 0);
+      if (sVis < 0.5) return;
+      const rawShoulderY = ((lS?.y ?? 0) + (rS?.y ?? 0)) / 2;
+      const shoulderY = smoothAngle("shoulderY", rawShoulderY);
+
+      // 动态基线 = 历史最高位置（y 最小）
+      const base = shoulderBaselineRef.current;
+      if (base == null) {
+        shoulderBaselineRef.current = shoulderY;
+        baselineSamplesRef.current = 1;
+        return;
+      }
+      // 站立位变得更高（y 更小）→ 立刻更新基线
+      if (shoulderY < base) {
+        shoulderBaselineRef.current = shoulderY;
+      } else if (stateRef.current === "up") {
+        // 站立态下缓慢漂回基线，吸收姿势微调
+        shoulderBaselineRef.current = base * 0.995 + shoulderY * 0.005;
+      }
+      baselineSamplesRef.current += 1;
+      if (baselineSamplesRef.current < 15) return; // 等基线稳定
+
+      const drop = shoulderY - (shoulderBaselineRef.current ?? shoulderY);
+      const downPose = drop > 0.08;
+      const upPose = drop < 0.025;
       if (stateRef.current === "up" && confirmPose("down", downPose)) {
         stateRef.current = "down";
         stableRef.current.up = 0;
@@ -288,6 +338,8 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
     stableRef.current = { down: 0, up: 0 };
     smoothAnglesRef.current = {};
     lastCountAtRef.current = 0;
+    shoulderBaselineRef.current = null;
+    baselineSamplesRef.current = 0;
   }
 
   return { videoRef, canvasRef, count, ready, error, reset, startCamera };
