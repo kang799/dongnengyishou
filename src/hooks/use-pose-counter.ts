@@ -249,6 +249,8 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
     if (!active) return;
     let cancelled = false;
     let pausedByVisibility = false;
+    let watchdogId: number | null = null;
+    let visHandler: (() => void) | null = null;
     setError(null);
     setReady(false);
     consecErrRef.current = 0;
@@ -277,7 +279,7 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
         const KEY_POINTS = [0, 11, 12, 23, 24];
 
         // 单帧超时检查：上一帧 detectForVideo 卡 1.5s 还没回来 => 重建模型
-        const watchdog = window.setInterval(async () => {
+        watchdogId = window.setInterval(async () => {
           if (cancelled) return;
           if (busyRef.current && performance.now() - frameStartRef.current > 1500) {
             console.warn("pose frame timeout, recreate landmarker");
@@ -349,7 +351,7 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
         rafRef.current = requestAnimationFrame(loop);
 
         // 切到后台暂停，回前台恢复
-        const onVis = async () => {
+        visHandler = async () => {
           if (document.hidden) {
             pausedByVisibility = true;
             try { video.pause(); } catch {}
@@ -367,12 +369,7 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
             }
           }
         };
-        document.addEventListener("visibilitychange", onVis);
-
-        (loop as any)._cleanup = () => {
-          window.clearInterval(watchdog);
-          document.removeEventListener("visibilitychange", onVis);
-        };
+        document.addEventListener("visibilitychange", visHandler);
       } catch (e: any) {
         setError(e?.message ?? "无法启用摄像头");
         setCameraHealth("disconnected");
@@ -384,6 +381,8 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
       cameraGenerationRef.current += 1;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
+      if (watchdogId != null) window.clearInterval(watchdogId);
+      if (visHandler) document.removeEventListener("visibilitychange", visHandler);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
