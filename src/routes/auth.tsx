@@ -13,7 +13,7 @@ export const Route = createFileRoute("/auth")({
 });
 
 function AuthPage() {
-  const [mode, setMode] = useState<"signin" | "signup">("signup");
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -86,14 +86,25 @@ function AuthPage() {
           password,
           options: {
             emailRedirectTo: window.location.origin,
-            data: { display_name: displayName || email.split("@")[0] },
+            data: {
+              display_name: displayName || email.split("@")[0],
+              pet_name: finalPetName,
+            },
           },
         });
         if (error) throw error;
+        // Supabase 邮箱枚举保护：重复注册返回空 identities
+        if (data.user && (data.user.identities?.length ?? 0) === 0) {
+          toast.error("该邮箱已注册，请直接登录");
+          setMode("signin");
+          return;
+        }
         if (data.user) {
-          if (petName.trim()) {
-            await supabase.from("pets").update({ name: finalPetName }).eq("user_id", data.user.id);
-          }
+          // 兜底：确保 pet 名与提示一致
+          await supabase
+            .from("pets")
+            .update({ name: finalPetName, species: finalPetName })
+            .eq("user_id", data.user.id);
           const url = await uploadAvatar(data.user.id);
           if (url) {
             await supabase.from("profiles").update({ avatar_url: url }).eq("id", data.user.id);
@@ -103,7 +114,14 @@ function AuthPage() {
         nav({ to: "/pet" });
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        if (error) {
+          if (/invalid login credentials/i.test(error.message)) {
+            toast.error("该账号尚未注册或密码有误，请先结契");
+            setMode("signup");
+            return;
+          }
+          throw error;
+        }
         if (data.user && avatarFile) {
           const url = await uploadAvatar(data.user.id);
           if (url) {
