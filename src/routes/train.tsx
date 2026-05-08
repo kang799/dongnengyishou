@@ -45,9 +45,11 @@ function TrainPage() {
     // 1) load pet
     const { data: pet } = await supabase.from("pets").select("*").eq("user_id", user.id).maybeSingle();
     if (!pet) return;
-    const next = { ...pet, [col]: (pet as any)[col] + delta };
-    const bp = computeBattlePower(next as any);
-    await supabase.from("pets").update({ [col]: next[col], battle_power: bp }).eq("id", pet.id);
+    const next: any = { ...pet, [col]: (pet as any)[col] + delta };
+    const bp = computeBattlePower(next);
+    const update: any = { battle_power: bp };
+    update[col] = next[col];
+    await supabase.from("pets").update(update).eq("id", pet.id);
     await supabase.from("exercise_logs").insert({ user_id: user.id, exercise_type: ex, reps: delta });
     // 打卡天数
     const today = new Date().toISOString().slice(0, 10);
