@@ -8,7 +8,7 @@ import { computeBattlePower } from "@/lib/beasts";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/train")({
-  head: () => ({ meta: [{ title: "修行 · 异兽录" }] }),
+  head: () => ({ meta: [{ title: "修行 · 动能异兽" }] }),
   component: TrainPage,
 });
 

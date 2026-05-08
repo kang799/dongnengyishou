@@ -8,7 +8,7 @@ import { STAGE_TITLES } from "@/lib/beasts";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/arena")({
-  head: () => ({ meta: [{ title: "斗兽台 · 异兽录" }] }),
+  head: () => ({ meta: [{ title: "斗兽台 · 动能异兽" }] }),
   component: Arena,
 });
 

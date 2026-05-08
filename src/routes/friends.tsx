@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { STAGE_TITLES, totalAttr } from "@/lib/beasts";
 
 export const Route = createFileRoute("/friends")({
-  head: () => ({ meta: [{ title: "道友 · 异兽录" }] }),
+  head: () => ({ meta: [{ title: "道友 · 动能异兽" }] }),
   component: FriendsPage,
 });
 

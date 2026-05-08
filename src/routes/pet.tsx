@@ -8,7 +8,7 @@ import { canEvolve, computeBattlePower, evolutionThreshold, STAGE_TITLES, totalA
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/pet")({
-  head: () => ({ meta: [{ title: "我的异兽 · 异兽录" }] }),
+  head: () => ({ meta: [{ title: "我的异兽 · 动能异兽" }] }),
   component: PetPage,
 });
 
