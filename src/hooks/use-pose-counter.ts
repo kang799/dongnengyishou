@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 export type ExerciseType = "squat" | "pushup" | "situp";
 
@@ -58,13 +58,57 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
   const rafRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const exerciseRef = useRef<ExerciseType>(exercise);
+  const stableRef = useRef({ down: 0, up: 0 });
+  const smoothAnglesRef = useRef<Record<string, number>>({});
+  const lastCountAtRef = useRef(0);
 
   // 切换练习只重置计数，不动摄像头/模型
   useEffect(() => {
     exerciseRef.current = exercise;
     setCount(0);
     stateRef.current = "up";
+    stableRef.current = { down: 0, up: 0 };
+    smoothAnglesRef.current = {};
+    lastCountAtRef.current = 0;
   }, [exercise]);
+
+  const startCamera = useCallback(async () => {
+    try {
+      setError(null);
+      setReady(false);
+      const existing = streamRef.current;
+      if (existing?.getVideoTracks().some((track) => track.readyState === "live")) return true;
+
+      if (!navigator.mediaDevices?.getUserMedia) {
+        setError("当前浏览器不支持摄像头调用");
+        return false;
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+          frameRate: { ideal: 24, max: 30 },
+        },
+        audio: false,
+      });
+
+      streamRef.current = stream;
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = stream;
+        video.muted = true;
+        video.playsInline = true;
+        await video.play().catch(() => undefined);
+      }
+      return true;
+    } catch (e: any) {
+      setReady(false);
+      setError(e?.name === "NotAllowedError" ? "摄像头权限被拒绝，请允许后重试" : e?.message ?? "无法启用摄像头");
+      return false;
+    }
+  }, []);
 
   useEffect(() => {
     if (!active) return;
