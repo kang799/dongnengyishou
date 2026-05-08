@@ -1,45 +1,37 @@
-## 1. 头像 / 道号随时可改
+## 三个问题修复
 
-在 `site-header.tsx` 把头像 + 道号区域改成可点击：
+### 问题 1：默认应是「登录」而非「注册」
+当前 `auth.tsx` 默认 `mode = "signup"`。改为：
+- 默认 `mode = "signin"`，进入页面先显示**复归山门**（登录）
+- 登录时如果 Supabase 报错 `Invalid login credentials`，弹 toast「该账号尚未注册，是否前往结契？」并自动切到 `signup` 模式（保留已填邮箱）
+- 底部切换链接调整文案顺序：登录页提示「尚未结契？招神入册」
 
-- 点击 → 弹出 shadcn `Dialog`（"修改身份"）。
-- Dialog 内：
-  - 头像：复用现有的圆形上传按钮（点击换图，>3MB / 非图片提示）。上传到 `avatars/{userId}/avatar.{ext}`（`upsert: true`），写入 `profiles.avatar_url`。
-  - 道号：`Input maxLength={6}`，提交时校验 1–6 字。
-  - "保存" 按钮：先上传头像（如有改动），再 `update profiles set avatar_url, display_name`。
-  - 失败处理：唯一约束冲突 → toast "此道号已被其他道友占用，请换一个"。
-  - 成功：刷新本地 state，关闭弹窗，toast "已更新"。
-- 头像上传新文件名加时间戳后缀（`avatar-{ts}.{ext}`），避免 CDN 缓存旧头像。
+### 问题 2：已注册邮箱重复注册无提示
+Supabase 默认开启邮箱枚举保护，重复注册会返回 `data.user.identities = []` 而无 error。
+- 注册成功后判断 `(data.user.identities?.length ?? 0) === 0` → toast「该邮箱已注册，请直接登录」并切回 `signin` 模式
 
-涉及：`src/components/site-header.tsx`（新增 dialog state + 表单）。不需要新建组件文件。
+### 问题 3：结契提示的异兽名 ≠ 进入后看到的异兽名
+根因：`auth.tsx` 中前端用 `randomBeast()` 随机一个名字 toast 给用户，但只有用户**手填了** `petName` 才会写库；否则数据库触发器 `handle_new_user` 又自己随机选一个 → 两个名字不一致。
 
-## 2. 页面切换提速
-
-排查到的几个明确瓶颈：
-
-### a) `defaultPreloadStaleTime: 0` + 未启用 intent 预加载
-当前 router 没设 `defaultPreload`，每次点击都要走完整 loader / RSC 流，且预加载结果立刻过期。
-**改：** `defaultPreload: "intent"`，`defaultPreloadStaleTime: 30_000`（鼠标悬停就开始拉取下一页数据）。
-
-### b) `backdrop-blur` 在 sticky header 上每帧重采样
-`site-header.tsx` 用 `bg-background/70 backdrop-blur sticky`，移动端切页时整页重绘，header 的 blur 是高额开销。
-**改：** 去掉 `backdrop-blur`，换成实色 `bg-background/95`（视觉差异极小，性能提升明显）。`train.tsx` 内的 3 处 `backdrop-blur-sm` 是训练页静态层不重要，但顺带改成实色更稳。
-
-### c) 顶栏每次路由切换都重新查 profile
-`useEffect` 依赖 `[user]`，但 `user` 引用每次 `onAuthStateChange` 触发都会变 → 每次路由进入都打一次数据库。
-**改：** 用 `user?.id` 作为依赖，并把 profile 查询挪到 React Query (`useQuery(["profile", user.id])`)，缓存 5 分钟。这样切页头像/道号瞬间渲染。
-
-### d) `useAuth` 在每个页面被重复实例化
-现在每个路由组件 + header 都各自跑 `getSession()` + 订阅 `onAuthStateChange`。Supabase 内部虽然便宜，但每次仍触发组件树 re-render。
-**改：** 暂不重构（影响面大），先靠 (a)(b)(c) 的收益。
-
-### e) （可选）路由 Link `preload="intent"`
-全局 default 已覆盖，无需逐个加。
+修复：
+- **`src/routes/auth.tsx`**
+  - 始终先决定 `finalPetName = petName.trim() || randomBeast()`
+  - 通过 `signUp` 的 `options.data.pet_name = finalPetName` 传给后端
+  - 注册成功后再追加一次 `pets.update({ name: finalPetName, species: finalPetName }).eq('user_id', data.user.id)` 作为兜底，确保与 toast 一致
+- **新建 migration** 更新 `public.handle_new_user()`：
+  ```sql
+  proposed_pet := nullif(trim(coalesce(new.raw_user_meta_data->>'pet_name','')), '');
+  IF proposed_pet IS NULL THEN
+    proposed_pet := beasts[1 + floor(random()*array_length(beasts,1))::int];
+  END IF;
+  INSERT INTO public.pets(user_id, name, species) VALUES (new.id, proposed_pet, proposed_pet);
+  ```
+  其余逻辑（profile、display_name 校验）保持不变。
 
 ## 涉及文件
+- `src/routes/auth.tsx`：默认 signin、登录失败引导注册、重复邮箱检测、pet_name 透传 + 兜底 update
+- 新建 `supabase/migrations/xxx_pet_name_from_metadata.sql`：更新 `handle_new_user` 触发器
 
-- `src/router.tsx`：加 `defaultPreload: "intent"`、调高 staleTime。
-- `src/components/site-header.tsx`：去 backdrop-blur；加身份编辑 Dialog；profile 查询改 React Query + 用 `user?.id` 依赖。
-- `src/routes/train.tsx`：3 处 `backdrop-blur-sm` → 实色（顺手做，非关键）。
-
-不动数据库（道号唯一性 / 长度约束已在上一轮加好，update 时会自动校验）。
+## 不改动
+- pet.tsx / site-header.tsx / 其他路由
+- RLS、表结构
