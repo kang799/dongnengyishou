@@ -9,6 +9,8 @@ import {
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
+import { Toaster } from "sonner";
+import { SiteHeader } from "@/components/site-header";
 
 function NotFoundComponent() {
   return (
@@ -72,11 +74,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
+      { title: "异兽录 · 健身宠物对战" },
+      { name: "description", content: "用深蹲、俯卧撑、仰卧起坐喂养你的山海经异兽，争夺三大全服榜单。" },
       { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { property: "og:title", content: "异兽录 · 健身宠物对战" },
+      { property: "og:description", content: "用真实运动喂养你的山海经异兽" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "twitter:site", content: "@Lovable" },
@@ -113,7 +115,16 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Outlet />
+      <div className="min-h-screen flex flex-col">
+        <SiteHeader />
+        <main className="flex-1">
+          <Outlet />
+        </main>
+        <footer className="text-center text-xs text-muted-foreground py-6 font-display tracking-widest">
+          · 异兽录 · 以汗水化神兽 ·
+        </footer>
+      </div>
+      <Toaster position="top-center" richColors />
     </QueryClientProvider>
   );
 }
