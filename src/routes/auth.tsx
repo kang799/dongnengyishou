@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,15 +19,53 @@ function AuthPage() {
   const [displayName, setDisplayName] = useState("");
   const [petName, setPetName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const nav = useNavigate();
+
+  function pickAvatar(file: File | null) {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("请选择图片文件");
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      toast.error("头像不可超过 3MB");
+      return;
+    }
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  }
+
+  async function uploadAvatar(userId: string): Promise<string | null> {
+    if (!avatarFile) return null;
+    const ext = avatarFile.name.split(".").pop() || "png";
+    const path = `${userId}/avatar.${ext}`;
+    const { error } = await supabase.storage
+      .from("avatars")
+      .upload(path, avatarFile, { upsert: true, contentType: avatarFile.type });
+    if (error) {
+      toast.error("头像上传失败：" + error.message);
+      return null;
+    }
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+    return data.publicUrl;
+  }
 
   async function guestLogin() {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInAnonymously({
+      const { data, error } = await supabase.auth.signInAnonymously({
         options: { data: { is_guest: true } },
       });
       if (error) throw error;
+      if (data.user) {
+        const url = await uploadAvatar(data.user.id);
+        if (url) {
+          await supabase.from("profiles").update({ avatar_url: url }).eq("id", data.user.id);
+        }
+      }
       toast.success("已以游客身份入山，30 天未登录将自动消散");
       nav({ to: "/pet" });
     } catch (err: any) {
@@ -52,15 +90,26 @@ function AuthPage() {
           },
         });
         if (error) throw error;
-        // 若用户自定义宠物名，覆盖 trigger 默认值
-        if (data.user && petName.trim()) {
-          await supabase.from("pets").update({ name: finalPetName }).eq("user_id", data.user.id);
+        if (data.user) {
+          if (petName.trim()) {
+            await supabase.from("pets").update({ name: finalPetName }).eq("user_id", data.user.id);
+          }
+          const url = await uploadAvatar(data.user.id);
+          if (url) {
+            await supabase.from("profiles").update({ avatar_url: url }).eq("id", data.user.id);
+          }
         }
         toast.success(`异兽 ${finalPetName} 已与你结契`);
         nav({ to: "/pet" });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        if (data.user && avatarFile) {
+          const url = await uploadAvatar(data.user.id);
+          if (url) {
+            await supabase.from("profiles").update({ avatar_url: url }).eq("id", data.user.id);
+          }
+        }
         nav({ to: "/pet" });
       }
     } catch (err: any) {
@@ -80,6 +129,28 @@ function AuthPage() {
           </h1>
         </div>
         <form onSubmit={submit} className="space-y-4">
+          <div className="flex flex-col items-center gap-2">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="h-20 w-20 rounded-full border-2 border-dashed border-foreground/30 overflow-hidden flex items-center justify-center bg-background/40 hover:border-primary transition-colors"
+              aria-label="上传头像"
+            >
+              {avatarPreview ? (
+                <img src={avatarPreview} alt="头像预览" className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-xs text-muted-foreground tracking-widest">上传头像</span>
+              )}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => pickAvatar(e.target.files?.[0] ?? null)}
+            />
+            <span className="text-[11px] text-muted-foreground tracking-widest">可选 · 不超过 3MB</span>
+          </div>
           {mode === "signup" && (
             <>
               <div>
