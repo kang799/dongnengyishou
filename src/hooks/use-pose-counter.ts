@@ -14,6 +14,37 @@ function angle(a: Landmark, b: Landmark, c: Landmark) {
   return (Math.acos(Math.min(1, Math.max(-1, cos))) * 180) / Math.PI;
 }
 
+// 模块级缓存：模型只加载一次，整个会话复用
+let landmarkerPromise: Promise<any> | null = null;
+function getLandmarker() {
+  if (!landmarkerPromise) {
+    landmarkerPromise = (async () => {
+      const { FilesetResolver, PoseLandmarker } = await import("@mediapipe/tasks-vision");
+      const vision = await FilesetResolver.forVisionTasks(
+        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm"
+      );
+      return PoseLandmarker.createFromOptions(vision, {
+        baseOptions: {
+          modelAssetPath:
+            "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+          delegate: "GPU",
+        },
+        runningMode: "VIDEO",
+        numPoses: 1,
+      });
+    })().catch((e) => {
+      landmarkerPromise = null;
+      throw e;
+    });
+  }
+  return landmarkerPromise;
+}
+
+// 暴露给 UI 提前预热（点入页面就开始下载，启动时无延迟）
+export function preloadPoseModel() {
+  void getLandmarker();
+}
+
 export function usePoseCounter(exercise: ExerciseType, active: boolean) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -22,10 +53,12 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
   const [error, setError] = useState<string | null>(null);
   const stateRef = useRef<"up" | "down">("up");
   const rafRef = useRef<number | null>(null);
-  const landmarkerRef = useRef<any>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const exerciseRef = useRef<ExerciseType>(exercise);
 
+  // 切换练习只重置计数，不动摄像头/模型
   useEffect(() => {
+    exerciseRef.current = exercise;
     setCount(0);
     stateRef.current = "up";
   }, [exercise]);
@@ -38,28 +71,18 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
 
     (async () => {
       try {
-        const { FilesetResolver, PoseLandmarker } = await import("@mediapipe/tasks-vision");
-        const vision = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm"
-        );
-        const lm = await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: {
-            modelAssetPath:
-              "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
-          },
-          runningMode: "VIDEO",
-          numPoses: 1,
-        });
+        // 并行加载模型 + 申请摄像头
+        const [lm, stream] = await Promise.all([
+          getLandmarker(),
+          navigator.mediaDevices.getUserMedia({
+            video: { width: 640, height: 480, facingMode: "user" },
+            audio: false,
+          }),
+        ]);
         if (cancelled) {
-          lm.close();
+          stream.getTracks().forEach((t) => t.stop());
           return;
         }
-        landmarkerRef.current = lm;
-
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 640, height: 480, facingMode: "user" },
-          audio: false,
-        });
         streamRef.current = stream;
         const video = videoRef.current!;
         video.srcObject = stream;
@@ -68,17 +91,21 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
 
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext("2d") ?? null;
+        let lastDraw = 0;
 
         const loop = () => {
-          if (cancelled || !landmarkerRef.current) return;
+          if (cancelled) return;
           if (video.readyState >= 2) {
-            const result = landmarkerRef.current.detectForVideo(video, performance.now());
+            const result = lm.detectForVideo(video, performance.now());
             const lms: Landmark[] | undefined = result?.landmarks?.[0];
             if (lms) {
-              detect(exercise, lms);
-              if (ctx && canvas) {
-                canvas.width = video.videoWidth;
-                canvas.height = video.videoHeight;
+              detect(exerciseRef.current, lms);
+              // 节流绘制：30fps 足够
+              const now = performance.now();
+              if (ctx && canvas && now - lastDraw > 33) {
+                lastDraw = now;
+                if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
+                if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = "rgba(176, 47, 32, 0.85)";
                 for (const p of lms) {
@@ -100,25 +127,24 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
     return () => {
       cancelled = true;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      if (landmarkerRef.current) {
-        landmarkerRef.current.close();
-        landmarkerRef.current = null;
-      }
+      rafRef.current = null;
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
       }
+      const v = videoRef.current;
+      if (v) {
+        try { v.pause(); } catch {}
+        v.srcObject = null;
+      }
       setReady(false);
+      // 模型保留在缓存中，下一次启动直接复用
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, exercise]);
+  }, [active]);
 
   function detect(ex: ExerciseType, l: Landmark[]) {
-    // MediaPipe Pose indices
-    // 11 L-shoulder, 12 R-shoulder, 13 L-elbow, 14 R-elbow, 15 L-wrist, 16 R-wrist
-    // 23 L-hip, 24 R-hip, 25 L-knee, 26 R-knee, 27 L-ankle, 28 R-ankle
     if (ex === "squat") {
-      const a = angle(l[24], l[26], l[28]); // 右髋-膝-踝
+      const a = angle(l[24], l[26], l[28]);
       const b = angle(l[23], l[25], l[27]);
       const knee = (a + b) / 2;
       if (stateRef.current === "up" && knee < 100) stateRef.current = "down";
@@ -136,7 +162,6 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
         setCount((c) => c + 1);
       }
     } else if (ex === "situp") {
-      // 髋角：肩-髋-膝
       const a = angle(l[12], l[24], l[26]);
       const b = angle(l[11], l[23], l[25]);
       const hip = (a + b) / 2;

@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
-import { usePoseCounter, type ExerciseType } from "@/hooks/use-pose-counter";
+import { preloadPoseModel, usePoseCounter, type ExerciseType } from "@/hooks/use-pose-counter";
 import { Button } from "@/components/ui/button";
 import { computeBattlePower } from "@/lib/beasts";
 import { toast } from "sonner";
@@ -25,19 +25,39 @@ function TrainPage() {
   const [exercise, setExercise] = useState<ExerciseType>("squat");
   const { videoRef, canvasRef, count, ready, error, reset } = usePoseCounter(exercise, active);
   const lastSyncedRef = useRef(0);
+  const flushTimerRef = useRef<number | null>(null);
+
+  // 进入页面就预热模型 + WASM，启动时延迟更短
+  useEffect(() => {
+    preloadPoseModel();
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) nav({ to: "/auth" });
   }, [loading, user, nav]);
 
-  // 每检测到一次新增，写入服务端 +1
+  // 节流：累计 reps，每 2 秒批量写一次，避免每个动作都打数据库
   useEffect(() => {
     if (count <= lastSyncedRef.current || !user) return;
-    const delta = count - lastSyncedRef.current;
-    lastSyncedRef.current = count;
-    void persistRep(exercise, delta);
+    if (flushTimerRef.current) return;
+    flushTimerRef.current = window.setTimeout(() => {
+      const delta = count - lastSyncedRef.current;
+      lastSyncedRef.current = count;
+      flushTimerRef.current = null;
+      if (delta > 0) void persistRep(exercise, delta);
+    }, 2000);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [count]);
+
+  // 离开页面时确保未提交的 reps 落盘
+  useEffect(() => {
+    return () => {
+      if (flushTimerRef.current) {
+        clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
+      }
+    };
+  }, []);
 
   async function persistRep(ex: ExerciseType, delta: number) {
     if (!user) return;
@@ -68,6 +88,16 @@ function TrainPage() {
   }
   function stop() {
     setActive(false);
+    // 收功时立即把剩余 reps 写入
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+    const delta = count - lastSyncedRef.current;
+    if (delta > 0) {
+      lastSyncedRef.current = count;
+      void persistRep(exercise, delta);
+    }
     toast.success(`本次修行 ${count} 次，真气已注入异兽`);
   }
 
