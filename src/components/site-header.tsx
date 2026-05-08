@@ -2,6 +2,7 @@ import { Link, useLocation } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { useEffect, useState } from "react";
 
 const NAV = [
   { to: "/pet", label: "我的异兽" },
@@ -15,6 +16,17 @@ export function SiteHeader() {
   const { user, loading } = useAuth();
   const loc = useLocation();
   const onAuthPage = loc.pathname === "/" || loc.pathname === "/auth";
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) { setAvatarUrl(null); return; }
+    void supabase
+      .from("profiles")
+      .select("avatar_url")
+      .eq("id", user.id)
+      .maybeSingle()
+      .then(({ data }) => setAvatarUrl(data?.avatar_url ?? null));
+  }, [user]);
 
   return (
     <header className="border-b border-foreground/15 bg-background/70 backdrop-blur sticky top-0 z-30">
@@ -40,8 +52,19 @@ export function SiteHeader() {
         <div className="flex items-center gap-2">
           {!loading && user && (
             <>
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt="头像"
+                  className="h-8 w-8 rounded-full object-cover border border-foreground/20"
+                />
+              ) : (
+                <span className="h-8 w-8 rounded-full bg-foreground/10 flex items-center justify-center text-xs font-display">
+                  {(user.email?.[0] ?? "兽").toUpperCase()}
+                </span>
+              )}
               <span className="hidden sm:inline text-sm text-muted-foreground font-display">
-                {user.email}
+                {user.email ?? "游客"}
               </span>
               <Button
                 variant="ghost"
