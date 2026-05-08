@@ -154,8 +154,13 @@ function AuthPage() {
           {mode === "signup" && (
             <>
               <div>
-                <Label className="font-display tracking-widest">道号</Label>
-                <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="例：青衫客" />
+                <Label className="font-display tracking-widest">道号 / 玩家ID（最多 6 字，留空随机）</Label>
+                <Input
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value.slice(0, 6))}
+                  maxLength={6}
+                  placeholder="例：青衫客"
+                />
               </div>
               <div>
                 <Label className="font-display tracking-widest">异兽名（留空则随机）</Label>

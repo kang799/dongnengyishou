@@ -153,6 +153,7 @@ export type Database = {
         Returns: undefined
       }
       cleanup_inactive_guests: { Args: never; Returns: number }
+      random_ancient_name: { Args: never; Returns: string }
       run_battle: { Args: { p_defender: string }; Returns: Json }
     }
     Enums: {
