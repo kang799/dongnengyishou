@@ -383,8 +383,6 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
       cancelled = true;
       cameraGenerationRef.current += 1;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
-      // watchdog 与 visibility 监听清理
-      try { (loop as any); } catch {}
       rafRef.current = null;
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
