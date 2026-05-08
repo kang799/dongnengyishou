@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { simulateBattle, type BattleEvent, type BattlePet } from "@/lib/battle";
+import type { BattleEvent } from "@/lib/battle";
 import { STAGE_TITLES } from "@/lib/beasts";
 import { toast } from "sonner";
 
@@ -52,31 +52,23 @@ function Arena() {
     setBattleEvents([]);
     setResult(null);
     setBattling(true);
-    const a: BattlePet = me;
-    const b: BattlePet = opp;
-    const sim = simulateBattle(a, b);
-    // 播放
-    for (let i = 0; i < sim.events.length; i++) {
-      await new Promise((r) => setTimeout(r, 600));
-      setBattleEvents((prev) => [...prev, sim.events[i]]);
-    }
-    const won = sim.winner === "challenger";
-    setResult(won ? "win" : "lose");
-    // 更新数据
-    if (won) {
-      const newBp = Math.max(me.battle_power, opp.battle_power) + 5;
-      await supabase.from("pets").update({ wins: me.wins + 1, battle_power: newBp }).eq("id", me.id);
-      await supabase.from("pets").update({ losses: opp.losses + 1 }).eq("id", opp.id);
-    } else {
-      await supabase.from("pets").update({ losses: me.losses + 1 }).eq("id", me.id);
-      await supabase.from("pets").update({ wins: opp.wins + 1 }).eq("id", opp.id);
-    }
-    await supabase.from("battles").insert({
-      challenger_id: user.id,
-      defender_id: opp.user_id,
-      winner_id: won ? user.id : opp.user_id,
-      log: sim.events as any,
+    // Battle is simulated and persisted server-side; client only animates.
+    const { data, error } = await supabase.rpc("run_battle", {
+      p_defender: opp.user_id,
     });
+    if (error || !data) {
+      console.error("run_battle failed", error);
+      toast.error("战斗失败，请稍后再试");
+      setBattling(false);
+      return;
+    }
+    const result = data as unknown as { winner: "challenger" | "defender"; events: BattleEvent[] };
+    for (let i = 0; i < result.events.length; i++) {
+      await new Promise((r) => setTimeout(r, 600));
+      setBattleEvents((prev) => [...prev, result.events[i]]);
+    }
+    const won = result.winner === "challenger";
+    setResult(won ? "win" : "lose");
     toast[won ? "success" : "error"](won ? "胜！战力提升" : "败！再去修行");
     setBattling(false);
     load();

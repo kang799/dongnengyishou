@@ -4,7 +4,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { usePoseCounter, type ExerciseType } from "@/hooks/use-pose-counter";
 import { Button } from "@/components/ui/button";
-import { computeBattlePower } from "@/lib/beasts";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/train")({
@@ -60,23 +59,14 @@ function TrainPage() {
 
   async function persistRep(ex: ExerciseType, delta: number) {
     if (!user) return;
-    const col = ex === "squat" ? "speed" : ex === "pushup" ? "strength" : "vitality";
-    // 1) load pet
-    const { data: pet } = await supabase.from("pets").select("*").eq("user_id", user.id).maybeSingle();
-    if (!pet) return;
-    const next: any = { ...pet, [col]: (pet as any)[col] + delta };
-    const bp = computeBattlePower(next);
-    const update: any = { battle_power: bp };
-    update[col] = next[col];
-    await supabase.from("pets").update(update).eq("id", pet.id);
-    await supabase.from("exercise_logs").insert({ user_id: user.id, exercise_type: ex, reps: delta });
-    // 打卡天数
-    const today = new Date().toISOString().slice(0, 10);
-    const { data: pr } = await supabase.from("profiles").select("*").eq("id", user.id).maybeSingle();
-    if (pr && pr.last_checkin_date !== today) {
-      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
-      const newStreak = pr.last_checkin_date === yesterday ? pr.streak_days + 1 : 1;
-      await supabase.from("profiles").update({ last_checkin_date: today, streak_days: newStreak }).eq("id", user.id);
+    // Server enforces validation, stat bounds, log insert and streak update.
+    const { error } = await supabase.rpc("apply_exercise", {
+      p_exercise: ex,
+      p_reps: delta,
+    });
+    if (error) {
+      console.error("apply_exercise failed", error);
+      toast.error("同步失败，请稍后重试");
     }
   }
 

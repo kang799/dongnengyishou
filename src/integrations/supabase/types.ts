@@ -148,7 +148,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_exercise: {
+        Args: { p_exercise: string; p_reps: number }
+        Returns: undefined
+      }
       cleanup_inactive_guests: { Args: never; Returns: number }
+      run_battle: { Args: { p_defender: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
