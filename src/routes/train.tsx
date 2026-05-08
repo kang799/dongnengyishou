@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
-import { preloadPoseModel, usePoseCounter, type ExerciseType } from "@/hooks/use-pose-counter";
+import { usePoseCounter, type ExerciseType } from "@/hooks/use-pose-counter";
 import { Button } from "@/components/ui/button";
 import { computeBattlePower } from "@/lib/beasts";
 import { toast } from "sonner";
@@ -23,14 +23,9 @@ function TrainPage() {
   const nav = useNavigate();
   const [active, setActive] = useState(false);
   const [exercise, setExercise] = useState<ExerciseType>("squat");
-  const { videoRef, canvasRef, count, ready, error, reset, startCamera } = usePoseCounter(exercise, active);
+  const { videoRef, canvasRef, count, ready, error, status, reset, recalibrate, startCamera } = usePoseCounter(exercise, active);
   const lastSyncedRef = useRef(0);
   const flushTimerRef = useRef<number | null>(null);
-
-  // 进入页面就预热模型 + WASM，启动时延迟更短
-  useEffect(() => {
-    preloadPoseModel();
-  }, []);
 
   useEffect(() => {
     if (!loading && !user) nav({ to: "/auth" });
@@ -155,6 +150,19 @@ function TrainPage() {
             </div>
           )}
           <div className="absolute top-4 left-4 seal text-2xl px-4">{count}</div>
+          {active && ready && exercise === "squat" && (
+            <div className="absolute bottom-0 left-0 right-0 p-3 bg-background/70 backdrop-blur-sm space-y-2">
+              <div className="text-center text-sm font-display tracking-widest">
+                {status.message}
+              </div>
+              <div className="h-2 rounded-full bg-secondary/40 overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${Math.round(status.progress * 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-3 mt-4 justify-center">
@@ -163,13 +171,20 @@ function TrainPage() {
               启动修行
             </Button>
           ) : (
-            <Button size="lg" variant="secondary" onClick={stop} className="font-display tracking-widest text-lg px-10">
-              收功 · {count} 次
-            </Button>
+            <>
+              {exercise === "squat" && (
+                <Button size="lg" variant="outline" onClick={recalibrate} className="font-display tracking-widest">
+                  重新校准
+                </Button>
+              )}
+              <Button size="lg" variant="secondary" onClick={stop} className="font-display tracking-widest text-lg px-10">
+                收功 · {count} 次
+              </Button>
+            </>
           )}
         </div>
         <p className="text-center text-xs text-muted-foreground mt-3 tracking-widest">
-          每完成一个标准动作，对应属性 +1，并自动累计连续打卡天数
+          深蹲：先按提示完成站立与下蹲两步校准，之后每蹲一次 +1。上半身入镜即可
         </p>
       </div>
     </div>
