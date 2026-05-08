@@ -4,6 +4,21 @@ export type ExerciseType = "squat" | "pushup" | "situp";
 
 type Landmark = { x: number; y: number; z: number; visibility?: number };
 
+export type SquatPhase =
+  | "idle"
+  | "calibrating-stand"
+  | "calibrating-squat"
+  | "ready"
+  | "down"
+  | "up";
+
+export type PoseStatus = {
+  phase: SquatPhase;
+  message: string;
+  progress: number; // 0-1, how far between standing and squat baseline
+  shoulderVisible: boolean;
+};
+
 function angle(a: Landmark, b: Landmark, c: Landmark) {
   const ab = { x: a.x - b.x, y: a.y - b.y };
   const cb = { x: c.x - b.x, y: c.y - b.y };
@@ -34,13 +49,13 @@ function getLandmarker() {
       };
       try {
         return await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: { modelAssetPath, delegate: "GPU" },
+          baseOptions: { modelAssetPath, delegate: "CPU" },
           ...common,
         });
-      } catch (gpuErr) {
-        console.warn("PoseLandmarker GPU failed, fallback to CPU", gpuErr);
+      } catch (cpuErr) {
+        console.warn("PoseLandmarker CPU failed, fallback to GPU", cpuErr);
         return await PoseLandmarker.createFromOptions(vision, {
-          baseOptions: { modelAssetPath, delegate: "CPU" },
+          baseOptions: { modelAssetPath, delegate: "GPU" },
           ...common,
         });
       }
@@ -63,6 +78,12 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
   const [count, setCount] = useState(0);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<PoseStatus>({
+    phase: "idle",
+    message: "等待启动",
+    progress: 0,
+    shoulderVisible: false,
+  });
   const stateRef = useRef<"up" | "down">("up");
   const rafRef = useRef<number | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -72,8 +93,32 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
   const stableRef = useRef({ down: 0, up: 0 });
   const smoothAnglesRef = useRef<Record<string, number>>({});
   const lastCountAtRef = useRef(0);
-  const shoulderBaselineRef = useRef<number | null>(null);
-  const baselineSamplesRef = useRef(0);
+  // 校准状态：站立 y / 下蹲 y
+  const standYRef = useRef<number | null>(null);
+  const squatYRef = useRef<number | null>(null);
+  const calibPhaseRef = useRef<SquatPhase>("calibrating-stand");
+  const calibSamplesRef = useRef(0);
+  const calibStartAtRef = useRef(0);
+  const lastSeenAtRef = useRef(0);
+  const busyRef = useRef(false);
+  const statusRef = useRef<PoseStatus>({
+    phase: "idle",
+    message: "等待启动",
+    progress: 0,
+    shoulderVisible: false,
+  });
+
+  const updateStatus = useCallback((next: Partial<PoseStatus>) => {
+    const merged = { ...statusRef.current, ...next };
+    if (
+      merged.phase === statusRef.current.phase &&
+      merged.message === statusRef.current.message &&
+      Math.abs(merged.progress - statusRef.current.progress) < 0.02 &&
+      merged.shoulderVisible === statusRef.current.shoulderVisible
+    ) return;
+    statusRef.current = merged;
+    setStatus(merged);
+  }, []);
 
   // 切换练习只重置计数，不动摄像头/模型
   useEffect(() => {
@@ -83,8 +128,16 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
     stableRef.current = { down: 0, up: 0 };
     smoothAnglesRef.current = {};
     lastCountAtRef.current = 0;
-    shoulderBaselineRef.current = null;
-    baselineSamplesRef.current = 0;
+    standYRef.current = null;
+    squatYRef.current = null;
+    calibPhaseRef.current = exercise === "squat" ? "calibrating-stand" : "ready";
+    calibSamplesRef.current = 0;
+    calibStartAtRef.current = 0;
+    if (exercise === "squat") {
+      updateStatus({ phase: "calibrating-stand", message: "请正对摄像头站直，保持 2 秒", progress: 0, shoulderVisible: false });
+    } else {
+      updateStatus({ phase: "ready", message: "可以开始", progress: 0, shoulderVisible: true });
+    }
   }, [exercise]);
 
   const startCamera = useCallback(async () => {
@@ -163,28 +216,35 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
           if (cancelled) return;
           try {
             const now = performance.now();
-            if (video.readyState >= 2 && now - lastDetect > 90) {
+            // ~10 FPS, 且上一帧还在跑就跳过
+            if (!busyRef.current && video.readyState >= 2 && now - lastDetect > 110) {
               lastDetect = now;
-              const result = lm.detectForVideo(video, performance.now());
-              const lms: Landmark[] | undefined = result?.landmarks?.[0];
-              if (lms) {
-                try { detect(exerciseRef.current, lms); } catch (e) { console.warn("detect error", e); }
-                if (ctx && canvas && now - lastDraw > 90) {
-                  lastDraw = now;
-                  if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
-                  if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
-                  ctx.clearRect(0, 0, canvas.width, canvas.height);
-                  ctx.fillStyle = "rgba(176, 47, 32, 0.85)";
-                  for (const p of lms) {
-                    ctx.beginPath();
-                    ctx.arc(p.x * canvas.width, p.y * canvas.height, 4, 0, Math.PI * 2);
-                    ctx.fill();
+              busyRef.current = true;
+              try {
+                const result = lm.detectForVideo(video, performance.now());
+                const lms: Landmark[] | undefined = result?.landmarks?.[0];
+                if (lms) {
+                  try { detect(exerciseRef.current, lms); } catch (e) { console.warn("detect error", e); }
+                  if (ctx && canvas && now - lastDraw > 110) {
+                    lastDraw = now;
+                    if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
+                    if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = "rgba(176, 47, 32, 0.85)";
+                    for (const p of lms) {
+                      ctx.beginPath();
+                      ctx.arc(p.x * canvas.width, p.y * canvas.height, 4, 0, Math.PI * 2);
+                      ctx.fill();
+                    }
                   }
                 }
+              } finally {
+                busyRef.current = false;
               }
             }
           } catch (e) {
             console.warn("pose loop frame error", e);
+            busyRef.current = false;
           }
           rafRef.current = requestAnimationFrame(loop);
         };
@@ -250,77 +310,7 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
 
   function detect(ex: ExerciseType, l: Landmark[]) {
     if (ex === "squat") {
-      // 判断下半身是否可见（膝+踝任一侧可见度足够）
-      const kneeVis = Math.max(
-        Math.min(l[25]?.visibility ?? 0, l[27]?.visibility ?? 0),
-        Math.min(l[26]?.visibility ?? 0, l[28]?.visibility ?? 0),
-      );
-      const fullBody = kneeVis >= 0.5;
-
-      if (fullBody) {
-        // 全身模式：髋-膝-踝
-        const rawKnee = bestAngle(l, 24, 26, 28, 23, 25, 27);
-        const knee = rawKnee == null ? null : smoothAngle("knee", rawKnee);
-        if (knee == null) return;
-        const hipY = ((l[23]?.y ?? 0) + (l[24]?.y ?? 0)) / 2;
-        const kneeY = ((l[25]?.y ?? 0) + (l[26]?.y ?? 0)) / 2;
-        const downPose = knee < 108 && hipY > kneeY - 0.2;
-        const upPose = knee > 158 && hipY < kneeY - 0.16;
-        if (stateRef.current === "up" && confirmPose("down", downPose)) {
-          stateRef.current = "down";
-          stableRef.current.up = 0;
-        } else if (stateRef.current === "down" && confirmPose("up", upPose)) {
-          stateRef.current = "up";
-          stableRef.current.down = 0;
-          tryCount();
-        }
-        return;
-      }
-
-      // 上半身模式：综合肩膀下沉 + 肩宽变小（人离镜头变远→下蹲常见）
-      const lS = l[11], rS = l[12];
-      const sVis = Math.min(lS?.visibility ?? 0, rS?.visibility ?? 0);
-      if (sVis < 0.35) return;
-      const rawShoulderY = ((lS?.y ?? 0) + (rS?.y ?? 0)) / 2;
-      const shoulderY = smoothAngle("shoulderY", rawShoulderY);
-      const rawShoulderW = Math.hypot((lS?.x ?? 0) - (rS?.x ?? 0), (lS?.y ?? 0) - (rS?.y ?? 0));
-      const shoulderW = smoothAngle("shoulderW", rawShoulderW);
-
-      // 动态基线：站立时的肩 y（最高位）和肩宽
-      const base = shoulderBaselineRef.current;
-      if (base == null) {
-        shoulderBaselineRef.current = shoulderY;
-        smoothAnglesRef.current["shoulderWBase"] = shoulderW;
-        baselineSamplesRef.current = 1;
-        return;
-      }
-      if (shoulderY < base) {
-        shoulderBaselineRef.current = shoulderY;
-      } else if (stateRef.current === "up") {
-        shoulderBaselineRef.current = base * 0.99 + shoulderY * 0.01;
-      }
-      const wBase = smoothAnglesRef.current["shoulderWBase"] ?? shoulderW;
-      if (shoulderW > wBase) {
-        smoothAnglesRef.current["shoulderWBase"] = shoulderW;
-      } else if (stateRef.current === "up") {
-        smoothAnglesRef.current["shoulderWBase"] = wBase * 0.99 + shoulderW * 0.01;
-      }
-      baselineSamplesRef.current += 1;
-      if (baselineSamplesRef.current < 10) return;
-
-      const drop = shoulderY - (shoulderBaselineRef.current ?? shoulderY);
-      const widthRatio = shoulderW / (smoothAnglesRef.current["shoulderWBase"] || shoulderW || 1);
-      // 任一信号显著触发：下沉 4% 画面高度，或肩宽缩小到 88% 以下
-      const downPose = drop > 0.04 || widthRatio < 0.88;
-      const upPose = drop < 0.02 && widthRatio > 0.95;
-      if (stateRef.current === "up" && confirmPose("down", downPose)) {
-        stateRef.current = "down";
-        stableRef.current.up = 0;
-      } else if (stateRef.current === "down" && confirmPose("up", upPose)) {
-        stateRef.current = "up";
-        stableRef.current.down = 0;
-        tryCount();
-      }
+      detectSquat(l);
     } else if (ex === "pushup") {
       // 肩-肘-腕
       const rawElbow = bestAngle(l, 12, 14, 16, 11, 13, 15);
@@ -354,15 +344,156 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
     }
   }
 
+  // 深蹲：基于用户自身校准的“站立 y”和“下蹲 y”进行计数
+  function detectSquat(l: Landmark[]) {
+    const lS = l[11], rS = l[12];
+    const nose = l[0];
+    const sVis = Math.max(lS?.visibility ?? 0, rS?.visibility ?? 0);
+    const noseVis = nose?.visibility ?? 0;
+    if (sVis < 0.35 && noseVis < 0.35) {
+      updateStatus({ shoulderVisible: false, message: "未检测到上半身，请把肩膀放进画面" });
+      return;
+    }
+    // 取肩中心 y；若肩不可见则退回鼻子
+    let rawY: number;
+    if (sVis >= 0.35 && lS && rS) {
+      rawY = ((lS.y) + (rS.y)) / 2;
+    } else {
+      rawY = nose!.y;
+    }
+    const y = smoothAngle("squatY", rawY);
+    lastSeenAtRef.current = performance.now();
+
+    const phase = calibPhaseRef.current;
+
+    if (phase === "calibrating-stand") {
+      if (calibStartAtRef.current === 0) calibStartAtRef.current = performance.now();
+      calibSamplesRef.current += 1;
+      // 收集 ~2 秒（约 18 帧）取最小 y 当作站立位
+      const prev = standYRef.current;
+      standYRef.current = prev == null ? y : Math.min(prev, y);
+      const elapsed = performance.now() - calibStartAtRef.current;
+      const progress = Math.min(1, elapsed / 2000);
+      updateStatus({
+        phase: "calibrating-stand",
+        message: `请站直，正在校准 ${Math.round(progress * 100)}%`,
+        progress: 0,
+        shoulderVisible: true,
+      });
+      if (elapsed >= 2000 && calibSamplesRef.current >= 12) {
+        calibPhaseRef.current = "calibrating-squat";
+        calibStartAtRef.current = performance.now();
+        calibSamplesRef.current = 0;
+        updateStatus({
+          phase: "calibrating-squat",
+          message: "请下蹲一次到最低点，并保持 1 秒",
+          progress: 0,
+          shoulderVisible: true,
+        });
+      }
+      return;
+    }
+
+    if (phase === "calibrating-squat") {
+      // 取下蹲过程中 y 的最大值（画面下方），需要明显大于站立位
+      const stand = standYRef.current ?? y;
+      const prev = squatYRef.current;
+      squatYRef.current = prev == null ? y : Math.max(prev, y);
+      const drop = (squatYRef.current - stand);
+      // 至少下沉 3% 画面高度才算有效下蹲
+      const ok = drop > 0.03;
+      const elapsed = performance.now() - calibStartAtRef.current;
+      updateStatus({
+        phase: "calibrating-squat",
+        message: ok
+          ? "保持最低点…"
+          : "请明显下蹲，让肩膀往下移动",
+        progress: Math.min(1, drop / 0.06),
+        shoulderVisible: true,
+      });
+      if (ok && elapsed >= 1500) {
+        calibPhaseRef.current = "ready";
+        stateRef.current = "up";
+        updateStatus({
+          phase: "ready",
+          message: "校准完成，开始计数。下蹲到最低点再起立 +1",
+          progress: 0,
+          shoulderVisible: true,
+        });
+      }
+      return;
+    }
+
+    // 正式计数阶段
+    const stand = standYRef.current!;
+    const squat = squatYRef.current!;
+    const range = Math.max(0.02, squat - stand);
+    const ratio = Math.max(0, Math.min(1.2, (y - stand) / range));
+
+    // 慢慢更新站立基线（用户站姿可能微调），只在 up 状态且 y 比 stand 还小时
+    if (stateRef.current === "up" && y < stand) {
+      standYRef.current = stand * 0.7 + y * 0.3;
+    }
+
+    const downPose = ratio > 0.65;
+    const upPose = ratio < 0.25;
+
+    let phaseLabel: SquatPhase = stateRef.current === "down" ? "down" : "up";
+    let msg = stateRef.current === "down" ? "已下蹲，起立计数 +1" : "请下蹲到最低点";
+    if (ratio > 0.25 && ratio < 0.65 && stateRef.current === "up") {
+      msg = "再蹲低一点";
+    }
+
+    if (stateRef.current === "up" && confirmPose("down", downPose)) {
+      stateRef.current = "down";
+      stableRef.current.up = 0;
+      phaseLabel = "down";
+      msg = "已下蹲，起立计数 +1";
+    } else if (stateRef.current === "down" && confirmPose("up", upPose)) {
+      stateRef.current = "up";
+      stableRef.current.down = 0;
+      phaseLabel = "up";
+      msg = "请下蹲到最低点";
+      tryCount();
+    }
+
+    updateStatus({
+      phase: phaseLabel,
+      message: msg,
+      progress: ratio,
+      shoulderVisible: true,
+    });
+  }
+
   function reset() {
     setCount(0);
     stateRef.current = "up";
     stableRef.current = { down: 0, up: 0 };
     smoothAnglesRef.current = {};
     lastCountAtRef.current = 0;
-    shoulderBaselineRef.current = null;
-    baselineSamplesRef.current = 0;
+    standYRef.current = null;
+    squatYRef.current = null;
+    calibSamplesRef.current = 0;
+    calibStartAtRef.current = 0;
+    calibPhaseRef.current = exerciseRef.current === "squat" ? "calibrating-stand" : "ready";
+    if (exerciseRef.current === "squat") {
+      updateStatus({ phase: "calibrating-stand", message: "请正对摄像头站直，保持 2 秒", progress: 0, shoulderVisible: false });
+    } else {
+      updateStatus({ phase: "ready", message: "可以开始", progress: 0, shoulderVisible: true });
+    }
   }
 
-  return { videoRef, canvasRef, count, ready, error, reset, startCamera };
+  function recalibrate() {
+    if (exerciseRef.current !== "squat") return;
+    standYRef.current = null;
+    squatYRef.current = null;
+    calibSamplesRef.current = 0;
+    calibStartAtRef.current = 0;
+    calibPhaseRef.current = "calibrating-stand";
+    stateRef.current = "up";
+    stableRef.current = { down: 0, up: 0 };
+    updateStatus({ phase: "calibrating-stand", message: "请正对摄像头站直，保持 2 秒", progress: 0, shoulderVisible: false });
+  }
+
+  return { videoRef, canvasRef, count, ready, error, status, reset, recalibrate, startCamera };
 }
