@@ -118,38 +118,29 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
 
     (async () => {
       try {
-        // 并行加载模型 + 申请摄像头
-        const [lm, stream] = await Promise.all([
-          getLandmarker(),
-          navigator.mediaDevices.getUserMedia({
-            video: { width: 640, height: 480, facingMode: "user" },
-            audio: false,
-          }),
-        ]);
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        streamRef.current = stream;
+        const lm = await getLandmarker();
+        const cameraReady = streamRef.current?.getVideoTracks().some((track) => track.readyState === "live") || await startCamera();
+        if (cancelled || !cameraReady) return;
         const video = videoRef.current!;
-        video.srcObject = stream;
-        await video.play();
+        if (!video.srcObject) video.srcObject = streamRef.current;
+        await video.play().catch(() => undefined);
         setReady(true);
 
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext("2d") ?? null;
         let lastDraw = 0;
+        let lastDetect = 0;
 
         const loop = () => {
           if (cancelled) return;
-          if (video.readyState >= 2) {
+          const now = performance.now();
+          if (video.readyState >= 2 && now - lastDetect > 66) {
+            lastDetect = now;
             const result = lm.detectForVideo(video, performance.now());
             const lms: Landmark[] | undefined = result?.landmarks?.[0];
             if (lms) {
               detect(exerciseRef.current, lms);
-              // 节流绘制：30fps 足够
-              const now = performance.now();
-              if (ctx && canvas && now - lastDraw > 33) {
+              if (ctx && canvas && now - lastDraw > 66) {
                 lastDraw = now;
                 if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
                 if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
@@ -187,7 +178,7 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
       setReady(false);
       // 模型保留在缓存中，下一次启动直接复用
     };
-  }, [active]);
+  }, [active, startCamera]);
 
   // 选可见度更高的一侧测角度，过低则返回 null
   function bestAngle(l: Landmark[], rA: number, rB: number, rC: number, lA: number, lB: number, lC: number) {
@@ -198,11 +189,10 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
     return angle(best.a, best.b, best.c);
   }
 
-  // 简单时间锁，避免抖动重复计数（每次计数最少间隔 350ms）
-  const lastCountAtRef = useRef(0);
+  // 简单时间锁，避免抖动重复计数（每次计数最少间隔 650ms）
   function tryCount() {
     const now = performance.now();
-    if (now - lastCountAtRef.current < 350) return false;
+    if (now - lastCountAtRef.current < 650) return false;
     lastCountAtRef.current = now;
     setCount((c) => c + 1);
     return true;
