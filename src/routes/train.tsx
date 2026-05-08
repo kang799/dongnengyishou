@@ -125,7 +125,7 @@ function TrainPage() {
           <video ref={videoRef} playsInline muted className="w-full h-full object-cover scale-x-[-1]" />
           <canvas ref={canvasRef} className="absolute inset-0 w-full h-full scale-x-[-1] pointer-events-none" />
           {!active && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+            <div className="absolute inset-0 flex items-center justify-center bg-background/95">
               <div className="text-center space-y-4">
                 <div className="font-display text-2xl tracking-widest text-muted-foreground">
                   点击 [启动] 开启摄像头修行
@@ -150,7 +150,7 @@ function TrainPage() {
           )}
           <div className="absolute top-4 left-4 seal text-2xl px-4">{count}</div>
           {active && (
-            <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1 rounded-full bg-background/70 backdrop-blur-sm text-xs font-display tracking-widest">
+            <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1 rounded-full bg-background/90 text-xs font-display tracking-widest">
               <span
                 className={`inline-block w-2 h-2 rounded-full ${
                   cameraHealth === "online" ? "bg-emerald-500" :
@@ -166,7 +166,7 @@ function TrainPage() {
             </div>
           )}
           {active && ready && exercise === "squat" && (
-            <div className="absolute bottom-0 left-0 right-0 p-3 bg-background/70 backdrop-blur-sm space-y-2">
+            <div className="absolute bottom-0 left-0 right-0 p-3 bg-background/90 space-y-2">
               <div className="text-center text-sm font-display tracking-widest">
                 {status.message}
               </div>
