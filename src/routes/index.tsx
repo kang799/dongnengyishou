@@ -1,6 +1,7 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -13,8 +14,18 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const { user } = useAuth();
-  const startTo = user ? "/pet" : "/auth";
+  const { user, loading } = useAuth();
+  const navigate = useNavigate();
+  const handleStart = async () => {
+    if (loading) return;
+    if (user) {
+      navigate({ to: "/pet" });
+      return;
+    }
+    // 兜底：再查一次实时会话，避免 hook 状态滞后
+    const { data } = await supabase.auth.getSession();
+    navigate({ to: data.session ? "/pet" : "/auth" });
+  };
 
   return (
     <div className="relative">
@@ -37,11 +48,14 @@ function Index() {
             </p>
 
             <div className="flex flex-wrap gap-3 pt-2">
-              <Link to={startTo}>
-                <Button size="lg" className="text-lg px-10 font-display tracking-[0.3em]">
-                  {user ? "回到山门" : "开 始 游 戏"}
-                </Button>
-              </Link>
+              <Button
+                size="lg"
+                onClick={handleStart}
+                disabled={loading}
+                className="text-lg px-10 font-display tracking-[0.3em]"
+              >
+                {loading ? "载 入 中…" : user ? "回到山门" : "开 始 游 戏"}
+              </Button>
               <Link to="/leaderboards">
                 <Button size="lg" variant="outline" className="text-lg px-8 font-display tracking-[0.3em]">
                   观封神榜
@@ -103,11 +117,14 @@ function Index() {
             <li><span className="seal mr-3">伍</span>各满 <b className="text-primary">100000</b> · 鸿蒙创世</li>
           </ol>
           <div className="text-center mt-8">
-            <Link to={startTo}>
-              <Button size="lg" className="font-display tracking-[0.4em] px-12">
-                开 始 游 戏
-              </Button>
-            </Link>
+            <Button
+              size="lg"
+              onClick={handleStart}
+              disabled={loading}
+              className="font-display tracking-[0.4em] px-12"
+            >
+              {loading ? "载 入 中…" : "开 始 游 戏"}
+            </Button>
           </div>
         </div>
       </section>
