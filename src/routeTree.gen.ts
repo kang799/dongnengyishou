@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TrainRouteImport } from './routes/train'
 import { Route as PetRouteImport } from './routes/pet'
 import { Route as LeaderboardsRouteImport } from './routes/leaderboards'
+import { Route as FriendsRouteImport } from './routes/friends'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ArenaRouteImport } from './routes/arena'
 import { Route as IndexRouteImport } from './routes/index'
@@ -29,6 +30,11 @@ const PetRoute = PetRouteImport.update({
 const LeaderboardsRoute = LeaderboardsRouteImport.update({
   id: '/leaderboards',
   path: '/leaderboards',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FriendsRoute = FriendsRouteImport.update({
+  id: '/friends',
+  path: '/friends',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/arena': typeof ArenaRoute
   '/auth': typeof AuthRoute
+  '/friends': typeof FriendsRoute
   '/leaderboards': typeof LeaderboardsRoute
   '/pet': typeof PetRoute
   '/train': typeof TrainRoute
@@ -59,6 +66,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/arena': typeof ArenaRoute
   '/auth': typeof AuthRoute
+  '/friends': typeof FriendsRoute
   '/leaderboards': typeof LeaderboardsRoute
   '/pet': typeof PetRoute
   '/train': typeof TrainRoute
@@ -68,20 +76,36 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/arena': typeof ArenaRoute
   '/auth': typeof AuthRoute
+  '/friends': typeof FriendsRoute
   '/leaderboards': typeof LeaderboardsRoute
   '/pet': typeof PetRoute
   '/train': typeof TrainRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/arena' | '/auth' | '/leaderboards' | '/pet' | '/train'
+  fullPaths:
+    | '/'
+    | '/arena'
+    | '/auth'
+    | '/friends'
+    | '/leaderboards'
+    | '/pet'
+    | '/train'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/arena' | '/auth' | '/leaderboards' | '/pet' | '/train'
+  to:
+    | '/'
+    | '/arena'
+    | '/auth'
+    | '/friends'
+    | '/leaderboards'
+    | '/pet'
+    | '/train'
   id:
     | '__root__'
     | '/'
     | '/arena'
     | '/auth'
+    | '/friends'
     | '/leaderboards'
     | '/pet'
     | '/train'
@@ -91,6 +115,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ArenaRoute: typeof ArenaRoute
   AuthRoute: typeof AuthRoute
+  FriendsRoute: typeof FriendsRoute
   LeaderboardsRoute: typeof LeaderboardsRoute
   PetRoute: typeof PetRoute
   TrainRoute: typeof TrainRoute
@@ -117,6 +142,13 @@ declare module '@tanstack/react-router' {
       path: '/leaderboards'
       fullPath: '/leaderboards'
       preLoaderRoute: typeof LeaderboardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/friends': {
+      id: '/friends'
+      path: '/friends'
+      fullPath: '/friends'
+      preLoaderRoute: typeof FriendsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -147,6 +179,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ArenaRoute: ArenaRoute,
   AuthRoute: AuthRoute,
+  FriendsRoute: FriendsRoute,
   LeaderboardsRoute: LeaderboardsRoute,
   PetRoute: PetRoute,
   TrainRoute: TrainRoute,
@@ -154,3 +187,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
