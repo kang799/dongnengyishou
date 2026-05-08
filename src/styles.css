@@ -181,6 +181,27 @@
     background: linear-gradient(90deg, transparent, var(--ink), transparent);
     opacity: 0.5;
   }
+  .ink-brush {
+    position: relative;
+  }
+  .ink-brush::after {
+    content: "";
+    position: absolute; left: 50%; bottom: -10px;
+    width: 120px; height: 8px; transform: translateX(-50%);
+    background: radial-gradient(ellipse at center, var(--ink) 0%, transparent 70%);
+    opacity: 0.4; filter: blur(1px);
+  }
+  .ink-splash {
+    background-image:
+      radial-gradient(circle at 15% 20%, color-mix(in oklab, var(--ink) 18%, transparent) 0%, transparent 25%),
+      radial-gradient(circle at 85% 70%, color-mix(in oklab, var(--cinnabar) 15%, transparent) 0%, transparent 30%),
+      radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--ink) 8%, transparent) 0%, transparent 60%);
+  }
+  .vline {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+    letter-spacing: 0.5em;
+  }
 }
 
 @font-face {
