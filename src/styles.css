@@ -64,11 +64,11 @@
 :root {
   --radius: 0.5rem;
   /* 宣纸底色 */
-  --background: oklch(0.96 0.018 85);
+  --background: oklch(0.93 0.045 88);
   --foreground: oklch(0.18 0.02 40);
-  --card: oklch(0.94 0.022 82);
+  --card: oklch(0.91 0.05 86);
   --card-foreground: oklch(0.18 0.02 40);
-  --popover: oklch(0.96 0.018 85);
+  --popover: oklch(0.93 0.045 88);
   --popover-foreground: oklch(0.18 0.02 40);
   /* 朱砂红 */
   --primary: oklch(0.5 0.18 28);
@@ -76,15 +76,15 @@
   /* 墨色 */
   --secondary: oklch(0.28 0.015 60);
   --secondary-foreground: oklch(0.97 0.015 85);
-  --muted: oklch(0.9 0.022 80);
+  --muted: oklch(0.87 0.045 84);
   --muted-foreground: oklch(0.42 0.025 55);
   /* 古铜 / 金 */
   --accent: oklch(0.62 0.13 70);
   --accent-foreground: oklch(0.15 0.02 40);
   --destructive: oklch(0.5 0.22 25);
   --destructive-foreground: oklch(0.97 0.015 85);
-  --border: oklch(0.78 0.025 60);
-  --input: oklch(0.86 0.022 75);
+  --border: oklch(0.74 0.045 70);
+  --input: oklch(0.83 0.045 78);
   --ring: oklch(0.5 0.18 28);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
@@ -101,9 +101,9 @@
   --sidebar-ring: oklch(0.704 0.04 256.788);
   --ink: oklch(0.18 0.02 40);
   --cinnabar: oklch(0.5 0.18 28);
-  --rice-paper: oklch(0.96 0.018 85);
+  --rice-paper: oklch(0.93 0.045 88);
   --gold: oklch(0.62 0.13 70);
-  --gradient-ink: linear-gradient(180deg, oklch(0.96 0.018 85) 0%, oklch(0.88 0.025 75) 100%);
+  --gradient-ink: linear-gradient(180deg, oklch(0.93 0.045 88) 0%, oklch(0.84 0.06 78) 100%);
   --shadow-ink: 0 8px 30px -8px color-mix(in oklab, var(--ink) 35%, transparent);
   --shadow-cinnabar: 0 4px 24px -6px color-mix(in oklab, var(--cinnabar) 40%, transparent);
   --font-display: "STKaiti","KaiTi","楷体","Ma Shan Zheng","ZCOOL XiaoWei",serif;
