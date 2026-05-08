@@ -26,11 +26,14 @@ function getLandmarker() {
       return PoseLandmarker.createFromOptions(vision, {
         baseOptions: {
           modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
+            "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task",
           delegate: "GPU",
         },
         runningMode: "VIDEO",
         numPoses: 1,
+        minPoseDetectionConfidence: 0.6,
+        minPosePresenceConfidence: 0.6,
+        minTrackingConfidence: 0.6,
       });
     })().catch((e) => {
       landmarkerPromise = null;
@@ -142,33 +145,57 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
     };
   }, [active]);
 
+  // 选可见度更高的一侧测角度，过低则返回 null
+  function bestAngle(l: Landmark[], rA: number, rB: number, rC: number, lA: number, lB: number, lC: number) {
+    const visR = Math.min(l[rA]?.visibility ?? 0, l[rB]?.visibility ?? 0, l[rC]?.visibility ?? 0);
+    const visL = Math.min(l[lA]?.visibility ?? 0, l[lB]?.visibility ?? 0, l[lC]?.visibility ?? 0);
+    const best = visR >= visL ? { v: visR, a: l[rA], b: l[rB], c: l[rC] } : { v: visL, a: l[lA], b: l[lB], c: l[lC] };
+    if (best.v < 0.5) return null;
+    return angle(best.a, best.b, best.c);
+  }
+
+  // 简单时间锁，避免抖动重复计数（每次计数最少间隔 350ms）
+  const lastCountAtRef = useRef(0);
+  function tryCount() {
+    const now = performance.now();
+    if (now - lastCountAtRef.current < 350) return false;
+    lastCountAtRef.current = now;
+    setCount((c) => c + 1);
+    return true;
+  }
+
   function detect(ex: ExerciseType, l: Landmark[]) {
     if (ex === "squat") {
-      const a = angle(l[24], l[26], l[28]);
-      const b = angle(l[23], l[25], l[27]);
-      const knee = (a + b) / 2;
-      if (stateRef.current === "up" && knee < 100) stateRef.current = "down";
-      else if (stateRef.current === "down" && knee > 160) {
+      // 髋-膝-踝
+      const knee = bestAngle(l, 24, 26, 28, 23, 25, 27);
+      if (knee == null) return;
+      // 同时要求髋部明显下沉（髋低于一定高度变化量）以减少误判
+      if (stateRef.current === "up" && knee < 95) stateRef.current = "down";
+      else if (stateRef.current === "down" && knee > 165) {
         stateRef.current = "up";
-        setCount((c) => c + 1);
+        tryCount();
       }
     } else if (ex === "pushup") {
-      const a = angle(l[12], l[14], l[16]);
-      const b = angle(l[11], l[13], l[15]);
-      const elbow = (a + b) / 2;
-      if (stateRef.current === "up" && elbow < 90) stateRef.current = "down";
-      else if (stateRef.current === "down" && elbow > 160) {
+      // 肩-肘-腕
+      const elbow = bestAngle(l, 12, 14, 16, 11, 13, 15);
+      if (elbow == null) return;
+      // 要求身体大致水平：肩与髋 y 接近
+      const shoulderY = ((l[11]?.y ?? 0) + (l[12]?.y ?? 0)) / 2;
+      const hipY = ((l[23]?.y ?? 0) + (l[24]?.y ?? 0)) / 2;
+      if (Math.abs(shoulderY - hipY) > 0.25) return; // 不是俯卧姿态
+      if (stateRef.current === "up" && elbow < 95) stateRef.current = "down";
+      else if (stateRef.current === "down" && elbow > 155) {
         stateRef.current = "up";
-        setCount((c) => c + 1);
+        tryCount();
       }
     } else if (ex === "situp") {
-      const a = angle(l[12], l[24], l[26]);
-      const b = angle(l[11], l[23], l[25]);
-      const hip = (a + b) / 2;
-      if (stateRef.current === "up" && hip < 80) {
+      // 肩-髋-膝
+      const hip = bestAngle(l, 12, 24, 26, 11, 23, 25);
+      if (hip == null) return;
+      if (stateRef.current === "up" && hip < 75) {
         stateRef.current = "down";
-        setCount((c) => c + 1);
-      } else if (stateRef.current === "down" && hip > 140) {
+        tryCount();
+      } else if (stateRef.current === "down" && hip > 135) {
         stateRef.current = "up";
       }
     }
