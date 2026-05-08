@@ -115,6 +115,8 @@ export type Database = {
           created_at: string
           display_name: string
           id: string
+          is_guest: boolean
+          last_active_at: string
           last_checkin_date: string | null
           streak_days: number
         }
@@ -122,6 +124,8 @@ export type Database = {
           created_at?: string
           display_name: string
           id: string
+          is_guest?: boolean
+          last_active_at?: string
           last_checkin_date?: string | null
           streak_days?: number
         }
@@ -129,6 +133,8 @@ export type Database = {
           created_at?: string
           display_name?: string
           id?: string
+          is_guest?: boolean
+          last_active_at?: string
           last_checkin_date?: string | null
           streak_days?: number
         }
@@ -139,7 +145,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_inactive_guests: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never

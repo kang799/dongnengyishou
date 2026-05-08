@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.cleanup_inactive_guests() FROM PUBLIC, anon, authenticated;

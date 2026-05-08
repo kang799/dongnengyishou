@@ -21,6 +21,22 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
   const nav = useNavigate();
 
+  async function guestLogin() {
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.signInAnonymously({
+        options: { data: { is_guest: true } },
+      });
+      if (error) throw error;
+      toast.success("已以游客身份入山，30 天未登录将自动消散");
+      nav({ to: "/pet" });
+    } catch (err: any) {
+      toast.error(err.message || "游客登录失败");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
@@ -95,6 +111,20 @@ function AuthPage() {
         >
           {mode === "signup" ? "已有道号？复归山门" : "尚未结契？招神入册"}
         </button>
+        <div className="mt-4 pt-4 border-t border-border/40">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={guestLogin}
+            disabled={loading}
+            className="w-full font-display tracking-widest"
+          >
+            游客入山 · 免注册体验
+          </Button>
+          <p className="text-[11px] text-muted-foreground text-center mt-2 tracking-widest">
+            连续 30 日未归山，游客数据将自行消散
+          </p>
+        </div>
       </div>
     </div>
   );

@@ -107,7 +107,7 @@ function TrainPage() {
       <div className="text-center">
         <h1 className="font-display text-4xl tracking-widest">修行 · 三式</h1>
         <p className="text-muted-foreground mt-2 text-sm tracking-widest">
-          站于摄像头前，全身入镜，AI 自动计数
+          站于摄像头前，全身或上半身入镜均可，AI 自动计数
         </p>
       </div>
 
@@ -159,7 +159,7 @@ function TrainPage() {
 
         <div className="flex gap-3 mt-4 justify-center">
           {!active ? (
-            <Button size="lg" onPointerDown={() => void startCamera()} onClick={start} className="font-display tracking-widest text-lg px-10">
+            <Button size="lg" onClick={start} className="font-display tracking-widest text-lg px-10">
               启动修行
             </Button>
           ) : (
