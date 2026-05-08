@@ -56,11 +56,12 @@ function AuthPage() {
 
   async function google() {
     try {
-      // @ts-expect-error optional integration; only present when Google sign-in is enabled
-      const mod = await import("@/integrations/lovable/index");
-      const lovable = mod.lovable;
-      const r = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin + "/pet" });
-      if (r.error) toast.error("Google 登录失败");
+      const path = "@/integrations/lovable/index";
+      const mod: any = await import(/* @vite-ignore */ path);
+      const r = await mod.lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin + "/pet",
+      });
+      if (r?.error) toast.error("Google 登录失败");
     } catch {
       toast.error("Google 登录暂未启用，请使用邮箱登录");
     }
