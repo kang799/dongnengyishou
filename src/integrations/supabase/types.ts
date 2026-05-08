@@ -112,6 +112,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_url: string | null
           created_at: string
           display_name: string
           id: string
@@ -121,6 +122,7 @@ export type Database = {
           streak_days: number
         }
         Insert: {
+          avatar_url?: string | null
           created_at?: string
           display_name: string
           id: string
@@ -130,6 +132,7 @@ export type Database = {
           streak_days?: number
         }
         Update: {
+          avatar_url?: string | null
           created_at?: string
           display_name?: string
           id?: string
