@@ -19,6 +19,8 @@ export type PoseStatus = {
   shoulderVisible: boolean;
 };
 
+export type CameraHealth = "idle" | "online" | "paused" | "disconnected";
+
 function angle(a: Landmark, b: Landmark, c: Landmark) {
   const ab = { x: a.x - b.x, y: a.y - b.y };
   const cb = { x: c.x - b.x, y: c.y - b.y };
@@ -31,6 +33,7 @@ function angle(a: Landmark, b: Landmark, c: Landmark) {
 
 // 模块级缓存：模型只加载一次，整个会话复用
 let landmarkerPromise: Promise<any> | null = null;
+let landmarkerInstance: any = null;
 function getLandmarker() {
   if (!landmarkerPromise) {
     landmarkerPromise = (async () => {
@@ -48,23 +51,33 @@ function getLandmarker() {
         minTrackingConfidence: 0.5,
       };
       try {
-        return await PoseLandmarker.createFromOptions(vision, {
+        landmarkerInstance = await PoseLandmarker.createFromOptions(vision, {
           baseOptions: { modelAssetPath, delegate: "CPU" },
           ...common,
         });
+        return landmarkerInstance;
       } catch (cpuErr) {
         console.warn("PoseLandmarker CPU failed, fallback to GPU", cpuErr);
-        return await PoseLandmarker.createFromOptions(vision, {
+        landmarkerInstance = await PoseLandmarker.createFromOptions(vision, {
           baseOptions: { modelAssetPath, delegate: "GPU" },
           ...common,
         });
+        return landmarkerInstance;
       }
     })().catch((e) => {
       landmarkerPromise = null;
+      landmarkerInstance = null;
       throw e;
     });
   }
   return landmarkerPromise;
+}
+
+// 模型损坏时丢弃缓存，下一次会重新创建
+function disposeLandmarker() {
+  try { landmarkerInstance?.close?.(); } catch {}
+  landmarkerInstance = null;
+  landmarkerPromise = null;
 }
 
 // 暴露给 UI 提前预热（点入页面就开始下载，启动时无延迟）
@@ -78,6 +91,8 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
   const [count, setCount] = useState(0);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cameraHealth, setCameraHealth] = useState<CameraHealth>("idle");
+  const [degraded, setDegraded] = useState(false);
   const [status, setStatus] = useState<PoseStatus>({
     phase: "idle",
     message: "等待启动",
@@ -101,6 +116,9 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
   const calibStartAtRef = useRef(0);
   const lastSeenAtRef = useRef(0);
   const busyRef = useRef(false);
+  const consecErrRef = useRef(0);
+  const frameStartRef = useRef(0);
+  const degradedRef = useRef(false);
   const statusRef = useRef<PoseStatus>({
     phase: "idle",
     message: "等待启动",
@@ -145,7 +163,10 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
       setError(null);
       setReady(false);
       const existing = streamRef.current;
-      if (existing?.getVideoTracks().some((track) => track.readyState === "live")) return true;
+      if (existing?.getVideoTracks().some((track) => track.readyState === "live")) {
+        setCameraHealth("online");
+        return true;
+      }
       if (cameraPromiseRef.current) return cameraPromiseRef.current;
 
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -157,9 +178,9 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
       cameraPromiseRef.current = navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: "user",
-          width: { ideal: 480 },
-          height: { ideal: 360 },
-          frameRate: { ideal: 20, max: 24 },
+          width: { ideal: 480, max: 640 },
+          height: { ideal: 360, max: 480 },
+          frameRate: { ideal: 15, max: 20 },
         },
         audio: false,
       }).then(async (stream) => {
@@ -168,6 +189,16 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
           return false;
         }
         streamRef.current = stream;
+        // 监控 track 健康
+        stream.getVideoTracks().forEach((track) => {
+          track.onended = () => {
+            console.warn("camera track ended");
+            setCameraHealth("disconnected");
+            setError("摄像头已断开，请点击恢复摄像头重试");
+          };
+          track.onmute = () => setCameraHealth("paused");
+          track.onunmute = () => setCameraHealth("online");
+        });
         const video = videoRef.current;
         if (video) {
           video.srcObject = stream;
@@ -175,28 +206,60 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
           video.playsInline = true;
           await video.play().catch(() => undefined);
         }
+        setCameraHealth("online");
         return true;
       });
 
       return await cameraPromiseRef.current;
     } catch (e: any) {
       setReady(false);
-      setError(e?.name === "NotAllowedError" ? "摄像头权限被拒绝，请允许后重试" : e?.message ?? "无法启用摄像头");
+      const name = e?.name;
+      let msg = "无法启用摄像头";
+      if (name === "NotAllowedError") msg = "摄像头权限被拒绝，请允许后重试";
+      else if (name === "NotFoundError") msg = "未检测到摄像头设备";
+      else if (name === "NotReadableError") msg = "摄像头被其他应用占用，请关闭后重试";
+      else if (name === "OverconstrainedError") msg = "摄像头不支持所需参数，请重试";
+      else if (location.protocol !== "https:" && location.hostname !== "localhost") msg = "请通过 HTTPS 打开页面后重试";
+      else if (e?.message) msg = e.message;
+      setError(msg);
+      setCameraHealth("disconnected");
       return false;
     } finally {
       cameraPromiseRef.current = null;
     }
   }, []);
 
+  const restartCamera = useCallback(async () => {
+    cameraGenerationRef.current += 1;
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    cameraPromiseRef.current = null;
+    const v = videoRef.current;
+    if (v) {
+      try { v.pause(); } catch {}
+      v.srcObject = null;
+    }
+    setCameraHealth("idle");
+    return startCamera();
+  }, [startCamera]);
+
   useEffect(() => {
     if (!active) return;
     let cancelled = false;
+    let pausedByVisibility = false;
+    let watchdogId: number | null = null;
+    let visHandler: (() => void) | null = null;
     setError(null);
     setReady(false);
+    consecErrRef.current = 0;
+    degradedRef.current = false;
+    setDegraded(false);
 
     (async () => {
       try {
-        const lm = await getLandmarker();
+        let lm = await getLandmarker();
         if (cancelled) return;
         const cameraReady =
           streamRef.current?.getVideoTracks().some((track) => track.readyState === "live") ||
@@ -206,37 +269,74 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
         if (!video.srcObject) video.srcObject = streamRef.current;
         await video.play().catch(() => undefined);
         setReady(true);
+        setCameraHealth("online");
 
         const canvas = canvasRef.current;
         const ctx = canvas?.getContext("2d") ?? null;
         let lastDraw = 0;
         let lastDetect = 0;
+        // 关键关键点索引（鼻、双肩、双髋）
+        const KEY_POINTS = [0, 11, 12, 23, 24];
+
+        // 单帧超时检查：上一帧 detectForVideo 卡 1.5s 还没回来 => 重建模型
+        watchdogId = window.setInterval(async () => {
+          if (cancelled) return;
+          if (busyRef.current && performance.now() - frameStartRef.current > 1500) {
+            console.warn("pose frame timeout, recreate landmarker");
+            disposeLandmarker();
+            busyRef.current = false;
+            try {
+              lm = await getLandmarker();
+            } catch (e) {
+              console.warn("recreate landmarker failed", e);
+            }
+          }
+        }, 1000);
 
         const loop = () => {
           if (cancelled) return;
+          const interval = degradedRef.current ? 200 : 110;
           try {
             const now = performance.now();
-            // ~10 FPS, 且上一帧还在跑就跳过
-            if (!busyRef.current && video.readyState >= 2 && now - lastDetect > 110) {
+            // ~10 FPS（降级时 ~5 FPS），且上一帧还在跑就跳过
+            if (!pausedByVisibility && !busyRef.current && video.readyState >= 2 && now - lastDetect > interval) {
               lastDetect = now;
               busyRef.current = true;
+              frameStartRef.current = now;
               try {
                 const result = lm.detectForVideo(video, performance.now());
                 const lms: Landmark[] | undefined = result?.landmarks?.[0];
+                consecErrRef.current = 0;
                 if (lms) {
                   try { detect(exerciseRef.current, lms); } catch (e) { console.warn("detect error", e); }
-                  if (ctx && canvas && now - lastDraw > 110) {
+                  if (ctx && canvas && now - lastDraw > interval) {
                     lastDraw = now;
                     if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
                     if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
                     ctx.fillStyle = "rgba(176, 47, 32, 0.85)";
-                    for (const p of lms) {
+                    // 只画关键点，减少 canvas 开销
+                    for (const idx of KEY_POINTS) {
+                      const p = lms[idx];
+                      if (!p) continue;
                       ctx.beginPath();
-                      ctx.arc(p.x * canvas.width, p.y * canvas.height, 4, 0, Math.PI * 2);
+                      ctx.arc(p.x * canvas.width, p.y * canvas.height, 5, 0, Math.PI * 2);
                       ctx.fill();
                     }
                   }
+                }
+              } catch (frameErr) {
+                consecErrRef.current += 1;
+                console.warn("detectForVideo error", frameErr);
+                if (consecErrRef.current >= 5) {
+                  console.warn("too many detect errors, recreate landmarker");
+                  disposeLandmarker();
+                  consecErrRef.current = 0;
+                  getLandmarker().then((nlm) => { lm = nlm; }).catch(() => undefined);
+                }
+                if (consecErrRef.current >= 3 && !degradedRef.current) {
+                  degradedRef.current = true;
+                  setDegraded(true);
                 }
               } finally {
                 busyRef.current = false;
@@ -249,8 +349,30 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
           rafRef.current = requestAnimationFrame(loop);
         };
         rafRef.current = requestAnimationFrame(loop);
+
+        // 切到后台暂停，回前台恢复
+        visHandler = async () => {
+          if (document.hidden) {
+            pausedByVisibility = true;
+            try { video.pause(); } catch {}
+            setCameraHealth("paused");
+          } else {
+            pausedByVisibility = false;
+            const tracks = streamRef.current?.getVideoTracks() ?? [];
+            const alive = tracks.some((t) => t.readyState === "live");
+            if (alive) {
+              try { await video.play(); } catch {}
+              setCameraHealth("online");
+            } else {
+              setCameraHealth("disconnected");
+              setError("摄像头连接已丢失，请点击恢复摄像头");
+            }
+          }
+        };
+        document.addEventListener("visibilitychange", visHandler);
       } catch (e: any) {
         setError(e?.message ?? "无法启用摄像头");
+        setCameraHealth("disconnected");
       }
     })();
 
@@ -259,6 +381,8 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
       cameraGenerationRef.current += 1;
       if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
+      if (watchdogId != null) window.clearInterval(watchdogId);
+      if (visHandler) document.removeEventListener("visibilitychange", visHandler);
       if (streamRef.current) {
         streamRef.current.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
@@ -270,6 +394,7 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
         v.srcObject = null;
       }
       setReady(false);
+      setCameraHealth("idle");
       // 模型保留在缓存中，下一次启动直接复用
     };
   }, [active, startCamera]);
@@ -495,5 +620,18 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
     updateStatus({ phase: "calibrating-stand", message: "请正对摄像头站直，保持 2 秒", progress: 0, shoulderVisible: false });
   }
 
-  return { videoRef, canvasRef, count, ready, error, status, reset, recalibrate, startCamera };
+  return {
+    videoRef,
+    canvasRef,
+    count,
+    ready,
+    error,
+    status,
+    cameraHealth,
+    degraded,
+    reset,
+    recalibrate,
+    startCamera,
+    restartCamera,
+  };
 }

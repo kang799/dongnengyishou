@@ -23,7 +23,11 @@ function TrainPage() {
   const nav = useNavigate();
   const [active, setActive] = useState(false);
   const [exercise, setExercise] = useState<ExerciseType>("squat");
-  const { videoRef, canvasRef, count, ready, error, status, reset, recalibrate, startCamera } = usePoseCounter(exercise, active);
+  const {
+    videoRef, canvasRef, count, ready, error, status,
+    cameraHealth, degraded,
+    reset, recalibrate, startCamera, restartCamera,
+  } = usePoseCounter(exercise, active);
   const lastSyncedRef = useRef(0);
   const flushTimerRef = useRef<number | null>(null);
 
@@ -146,10 +150,31 @@ function TrainPage() {
           )}
           {error && (
             <div className="absolute inset-0 flex items-center justify-center bg-background/90 p-6">
-              <div className="text-center text-destructive font-display">{error}</div>
+              <div className="text-center space-y-3">
+                <div className="text-destructive font-display">{error}</div>
+                <Button onClick={() => void restartCamera()} variant="secondary" size="sm" className="font-display tracking-widest">
+                  恢复摄像头
+                </Button>
+              </div>
             </div>
           )}
           <div className="absolute top-4 left-4 seal text-2xl px-4">{count}</div>
+          {active && (
+            <div className="absolute top-4 right-4 flex items-center gap-2 px-3 py-1 rounded-full bg-background/70 backdrop-blur-sm text-xs font-display tracking-widest">
+              <span
+                className={`inline-block w-2 h-2 rounded-full ${
+                  cameraHealth === "online" ? "bg-emerald-500" :
+                  cameraHealth === "paused" ? "bg-amber-500" :
+                  cameraHealth === "disconnected" ? "bg-destructive" :
+                  "bg-muted-foreground"
+                }`}
+              />
+              {cameraHealth === "online" ? "摄像头在线" :
+               cameraHealth === "paused" ? "已暂停" :
+               cameraHealth === "disconnected" ? "已断开" : "等待中"}
+              {degraded && <span className="text-muted-foreground">· 已降速</span>}
+            </div>
+          )}
           {active && ready && exercise === "squat" && (
             <div className="absolute bottom-0 left-0 right-0 p-3 bg-background/70 backdrop-blur-sm space-y-2">
               <div className="text-center text-sm font-display tracking-widest">
@@ -177,6 +202,9 @@ function TrainPage() {
                   重新校准
                 </Button>
               )}
+              <Button size="lg" variant="outline" onClick={() => void restartCamera()} className="font-display tracking-widest">
+                重启摄像头
+              </Button>
               <Button size="lg" variant="secondary" onClick={stop} className="font-display tracking-widest text-lg px-10">
                 收功 · {count} 次
               </Button>
