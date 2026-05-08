@@ -117,11 +117,14 @@ function Index() {
             <li><span className="seal mr-3">伍</span>各满 <b className="text-primary">100000</b> · 鸿蒙创世</li>
           </ol>
           <div className="text-center mt-8">
-            <Link to={startTo}>
-              <Button size="lg" className="font-display tracking-[0.4em] px-12">
-                开 始 游 戏
-              </Button>
-            </Link>
+            <Button
+              size="lg"
+              onClick={handleStart}
+              disabled={loading}
+              className="font-display tracking-[0.4em] px-12"
+            >
+              {loading ? "载 入 中…" : "开 始 游 戏"}
+            </Button>
           </div>
         </div>
       </section>
