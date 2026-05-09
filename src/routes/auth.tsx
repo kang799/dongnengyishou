@@ -38,6 +38,7 @@ function AuthPage() {
   const [overwriteOpen, setOverwriteOpen] = useState(false);
   const [overwriteBusy, setOverwriteBusy] = useState(false);
   const [pendingAction, setPendingAction] = useState<"signup" | "signin" | "guest" | null>(null);
+  const [overwriteSource, setOverwriteSource] = useState<"guestPrompt" | "form" | null>(null);
   const deleteGuestFn = useServerFn(deleteGuestAccount);
 
   useEffect(() => {
@@ -78,6 +79,7 @@ function AuthPage() {
     // 「新建账号」不再直接清缓存，先弹覆盖确认
     setGuestPromptOpen(false);
     setPendingAction("signup");
+    setOverwriteSource("guestPrompt");
     setOverwriteOpen(true);
   }
 
@@ -113,6 +115,7 @@ function AuthPage() {
   async function guestLogin() {
     if (loadGuestSession()) {
       setPendingAction("guest");
+      setOverwriteSource("form");
       setOverwriteOpen(true);
       return;
     }
@@ -153,6 +156,7 @@ function AuthPage() {
     // 若仍有上次的游客缓存，先弹覆盖确认
     if (loadGuestSession()) {
       setPendingAction(mode === "signup" ? "signup" : "signin");
+      setOverwriteSource("form");
       setOverwriteOpen(true);
       return;
     }
@@ -226,9 +230,11 @@ function AuthPage() {
   function cancelOverwrite() {
     setOverwriteOpen(false);
     setPendingAction(null);
-    // 用户拒绝覆盖，但旧游客缓存仍在 —— 重新弹出「继续 / 新建」选择，
-    // 避免用户被困在登录页无法回到旧账号
-    if (loadGuestSession()) {
+    // 仅当用户来自「检测到上次游客身份」对话框时，才重新弹出「继续 / 新建」选择
+    // 让其有机会改选「继续游客」回到旧账号；其他来源（表单/游客入山）则单纯关闭，避免循环
+    const source = overwriteSource;
+    setOverwriteSource(null);
+    if (source === "guestPrompt" && loadGuestSession()) {
       setGuestPromptOpen(true);
     }
   }
