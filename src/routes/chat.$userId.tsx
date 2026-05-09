@@ -25,7 +25,7 @@ function ChatPage() {
   const { userId: otherId } = Route.useParams();
   const { user, loading } = useAuth();
   const nav = useNavigate();
-  const [other, setOther] = useState<{ name: string; species: string; display_name: string } | null>(null);
+  const [other, setOther] = useState<{ name: string; species: string; display_name: string; avatar_url: string | null } | null>(null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
@@ -39,10 +39,10 @@ function ChatPage() {
   useEffect(() => {
     void (async () => {
       const [{ data: prof }, { data: pet }] = await Promise.all([
-        supabase.from("profiles").select("display_name").eq("id", otherId).maybeSingle(),
+        supabase.from("profiles").select("display_name, avatar_url").eq("id", otherId).maybeSingle(),
         supabase.from("pets").select("name, species").eq("user_id", otherId).maybeSingle(),
       ]);
-      if (pet) setOther({ name: pet.name, species: pet.species, display_name: prof?.display_name ?? "无名氏" });
+      if (pet) setOther({ name: pet.name, species: pet.species, display_name: prof?.display_name ?? "无名氏", avatar_url: prof?.avatar_url ?? null });
     })();
   }, [otherId]);
 
@@ -128,11 +128,11 @@ function ChatPage() {
         <Link to="/friends">
           <Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button>
         </Link>
-        {other && <BeastAvatar species={other.species} size={44} />}
+        {other && <BeastAvatar species={other.species} size={44} avatarUrl={other.avatar_url} name={other.display_name} />}
         <div className="flex-1 min-w-0">
           <div className="font-display text-xl text-primary truncate">
-            {other?.name ?? "…"}
-            <span className="text-sm text-muted-foreground ml-2">{other?.display_name ?? ""}</span>
+            {other?.display_name ?? "…"}
+            <span className="text-sm text-muted-foreground ml-2">· {other?.name ?? ""}</span>
           </div>
         </div>
         <Button
