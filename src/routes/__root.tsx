@@ -132,9 +132,7 @@ function RootComponent() {
               <Outlet />
             </div>
           </main>
-          <footer className="text-center text-xs text-muted-foreground py-6 font-display tracking-widest">
-            · 异兽录 · 以汗水化神兽 ·
-          </footer>
+          <footer className="text-center text-xs text-muted-foreground py-6 font-display tracking-widest">​</footer>
         </div>
         <WelcomeCarousel />
         <SpotlightTour />
