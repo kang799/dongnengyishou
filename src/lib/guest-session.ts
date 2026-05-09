@@ -12,10 +12,12 @@ export type GuestSessionCache = {
 export function saveGuestSession(s: Omit<GuestSessionCache, "created_at">) {
   try {
     const prev = loadGuestSession();
-    // 保留之前的 onboarded_at，除非显式传入
+    // 仅当 user_id 一致时继承旧的 onboarded_at；新游客不要继承上一个游客的状态
+    const inheritOnboarded =
+      prev && prev.user_id === s.user_id ? prev.onboarded_at ?? null : null;
     const merged: GuestSessionCache = {
       ...s,
-      onboarded_at: s.onboarded_at ?? prev?.onboarded_at ?? null,
+      onboarded_at: s.onboarded_at ?? inheritOnboarded,
       created_at: Date.now(),
     };
     localStorage.setItem(KEY, JSON.stringify(merged));
