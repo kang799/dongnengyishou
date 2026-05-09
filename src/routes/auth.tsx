@@ -22,6 +22,17 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+const PENDING_AVATAR_KEY = "pending-signup-avatar";
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 function AuthPage() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
@@ -39,6 +50,8 @@ function AuthPage() {
   const [overwriteBusy, setOverwriteBusy] = useState(false);
   const [pendingAction, setPendingAction] = useState<"signup" | "signin" | "guest" | null>(null);
   const [overwriteSource, setOverwriteSource] = useState<"guestPrompt" | "form" | null>(null);
+  const [pendingVerifyEmail, setPendingVerifyEmail] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
   const deleteGuestFn = useServerFn(deleteGuestAccount);
 
   useEffect(() => {
@@ -112,6 +125,24 @@ function AuthPage() {
     return data.publicUrl;
   }
 
+  async function resendVerifyEmail() {
+    if (!pendingVerifyEmail) return;
+    setResending(true);
+    try {
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: pendingVerifyEmail,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      });
+      if (error) throw error;
+      toast.success("入山令已重发，请查收邮件");
+    } catch (err: any) {
+      toast.error(err?.message || "重发失败");
+    } finally {
+      setResending(false);
+    }
+  }
+
   async function guestLogin() {
     if (loadGuestSession()) {
       setGuestPromptOpen(true);
@@ -170,7 +201,7 @@ function AuthPage() {
           email,
           password,
           options: {
-            emailRedirectTo: window.location.origin,
+            emailRedirectTo: `${window.location.origin}/auth/callback`,
             data: {
               display_name: displayName || email.split("@")[0],
               pet_name: finalPetName,
@@ -184,25 +215,30 @@ function AuthPage() {
           setMode("signin");
           return;
         }
-        if (data.user) {
-          // 兜底：确保 pet 名与提示一致
-          await supabase
-            .from("pets")
-            .update({ name: finalPetName, species: finalPetName })
-            .eq("user_id", data.user.id);
-          const url = await uploadAvatar(data.user.id);
-          if (url) {
-            await supabase.from("profiles").update({ avatar_url: url }).eq("id", data.user.id);
+        // 邮箱必须验证：此时 data.session 为 null。把头像暂存，等验证回调再上传。
+        if (avatarFile) {
+          try {
+            const dataUrl = await fileToDataUrl(avatarFile);
+            sessionStorage.setItem(
+              PENDING_AVATAR_KEY,
+              JSON.stringify({ name: avatarFile.name, type: avatarFile.type, dataUrl }),
+            );
+          } catch (err) {
+            console.warn("stash avatar failed", err);
           }
         }
-        clearGuestSession();
-        toast.success(`异兽 ${finalPetName} 已与你结契`);
-        nav({ to: "/pet" });
+        setPendingVerifyEmail(email);
+        toast.success("神谕已发出，请到邮箱点击『入山令』完成结契");
       } else {
         // 切回邮箱账号前先清掉残留匿名 session
         clearSupabaseLocalAuth();
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
+          if (/email not confirmed/i.test(error.message)) {
+            setPendingVerifyEmail(email);
+            toast.error("邮箱尚未验证，请先在邮件中点击『入山令』");
+            return;
+          }
           if (/invalid login credentials/i.test(error.message)) {
             toast.error("该账号尚未注册或密码有误，请先结契");
             setMode("signup");
@@ -272,6 +308,35 @@ function AuthPage() {
     <>
     <div className="container mx-auto px-4 py-16 max-w-md">
       <div className="ink-card rounded-2xl p-8">
+        {pendingVerifyEmail && (
+          <div className="mb-5 rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm leading-loose">
+            <div className="font-display tracking-widest mb-1">神 谕 待 启</div>
+            <p className="text-muted-foreground">
+              已发往 <span className="text-foreground">{pendingVerifyEmail}</span>，请到邮箱点击「入山令」完成验证。验证后会自动入山。
+            </p>
+            <div className="mt-3 flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={resendVerifyEmail}
+                disabled={resending}
+                className="font-display tracking-widest"
+              >
+                {resending ? "重发中…" : "重 发 邮 件"}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => setPendingVerifyEmail(null)}
+                className="font-display tracking-widest"
+              >
+                关 闭
+              </Button>
+            </div>
+          </div>
+        )}
         <div className="text-center mb-6">
           <div className="seal inline-block text-2xl mb-3">{mode === "signup" ? "招" : "归"}</div>
           <h1 className="font-display text-3xl tracking-widest">
