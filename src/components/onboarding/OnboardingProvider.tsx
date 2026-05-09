@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -37,6 +38,11 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const [welcomeOpen, setWelcomeOpen] = useState(false);
   const [tourActive, setTourActive] = useState(false);
   const [tourStep, setTourStep] = useState(0);
+  // 已经应用过"初始 UI 状态"的 user.id；避免同一账号内 onboardedAt 变化触发重置
+  const appliedInitialForUserRef = useRef<string | null>(null);
+  // 用 ref 保存最新 onboardedAt，供初始化 effect 读取
+  const onboardedAtRef = useRef<string | null>(null);
+  useEffect(() => { onboardedAtRef.current = onboardedAt; }, [onboardedAt]);
 
   // 拉取 onboarded_at
   useEffect(() => {
@@ -48,6 +54,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     setWelcomeOpen(false);
     setTourActive(false);
     setTourStep(0);
+    appliedInitialForUserRef.current = null;
     if (!user) {
       return;
     }
@@ -92,10 +99,13 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   }, [user, loading]);
 
   // 只有"当前 user 的状态确认完毕且确为未引导"才弹开场
+  // 仅在 confirmedUserId 切换的那一刻执行一次，避免会话内 markOnboarded 触发本 effect
   useEffect(() => {
     if (!user) return;
     if (confirmedUserId !== user.id) return;
-    if (onboardedAt) {
+    if (appliedInitialForUserRef.current === user.id) return;
+    appliedInitialForUserRef.current = user.id;
+    if (onboardedAtRef.current) {
       // 已完成：彻底关闭欢迎与聚光灯，避免上一次未完成的状态残留
       setWelcomeOpen(false);
       setTourActive(false);
@@ -103,7 +113,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     } else {
       setWelcomeOpen(true);
     }
-  }, [confirmedUserId, user, onboardedAt]);
+  }, [confirmedUserId, user]);
 
   const markOnboarded = useCallback(async () => {
     if (!user) return;
