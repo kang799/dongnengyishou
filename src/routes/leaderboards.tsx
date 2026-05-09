@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Crosshair } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { STAGE_TITLES, totalAttr } from "@/lib/beasts";
-import { getBeastIcon } from "@/lib/beast-icons";
+import { BeastAvatar } from "@/components/beast-avatar";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 
@@ -12,7 +12,7 @@ export const Route = createFileRoute("/leaderboards")({
   component: Boards,
 });
 
-type Row = { user_id: string; name: string; species: string; strength: number; speed: number; vitality: number; battle_power: number; evolution_stage: number; display_name?: string; streak_days?: number };
+type Row = { user_id: string; name: string; species: string; strength: number; speed: number; vitality: number; battle_power: number; evolution_stage: number; display_name?: string; streak_days?: number; avatar_url?: string | null };
 
 function Boards() {
   const { user } = useAuth();
@@ -30,6 +30,7 @@ function Boards() {
         ...p,
         display_name: profMap.get(p.user_id)?.display_name ?? "无名氏",
         streak_days: profMap.get(p.user_id)?.streak_days ?? 0,
+        avatar_url: profMap.get(p.user_id)?.avatar_url ?? null,
       }));
       if (tab === "attr") merged.sort((a, b) => totalAttr(b) - totalAttr(a));
       else if (tab === "power") merged.sort((a, b) => b.battle_power - a.battle_power);
@@ -83,11 +84,11 @@ function Boards() {
             <div className="w-10 text-center font-display text-2xl text-primary">
               {myIndex + 1}
             </div>
-            <BeastAvatar species={myRow.species} />
+            <BeastAvatar species={myRow.species} avatarUrl={myRow.avatar_url} name={myRow.display_name} />
             <div className="flex-1">
               <div className="font-display text-xl text-primary">
-                {myRow.name}
-                <span className="text-sm text-muted-foreground ml-2">道友 · {myRow.display_name}（我）</span>
+                {myRow.display_name}
+                <span className="text-sm text-muted-foreground ml-2">（我）· {myRow.name}</span>
               </div>
               <div className="text-xs text-muted-foreground tracking-widest mt-1">{STAGE_TITLES[myRow.evolution_stage]}</div>
             </div>
@@ -115,9 +116,9 @@ function Boards() {
             <div className={`w-10 text-center font-display text-2xl ${i < 3 ? "text-primary" : "text-muted-foreground"}`}>
               {i + 1}
             </div>
-            <BeastAvatar species={r.species} />
+            <BeastAvatar species={r.species} avatarUrl={r.avatar_url} name={r.display_name} />
             <div className="flex-1">
-              <div className="font-display text-xl text-primary">{r.name} <span className="text-sm text-muted-foreground ml-2">道友 · {r.display_name}</span></div>
+              <div className="font-display text-xl text-primary">{r.display_name} <span className="text-sm text-muted-foreground ml-2">· {r.name}</span></div>
               <div className="text-xs text-muted-foreground tracking-widest mt-1">{STAGE_TITLES[r.evolution_stage]}</div>
             </div>
             <div className="font-display text-2xl text-primary">
@@ -138,19 +139,6 @@ function Boards() {
         ))}
         {rows.length === 0 && <div className="p-12 text-center text-muted-foreground">榜单虚位以待</div>}
       </div>
-    </div>
-  );
-}
-
-function BeastAvatar({ species }: { species: string }) {
-  const icon = getBeastIcon(species);
-  return (
-    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/10 flex items-center justify-center shrink-0 overflow-hidden">
-      {icon ? (
-        <img src={icon} alt={species} className="w-9 h-9 object-contain" />
-      ) : (
-        <span className="font-display text-lg text-primary/80">兽</span>
-      )}
     </div>
   );
 }

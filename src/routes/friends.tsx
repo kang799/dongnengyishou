@@ -23,12 +23,13 @@ type Row = {
   evolution_stage: number;
   display_name: string;
   streak_days: number;
+  avatar_url: string | null;
 };
 
 async function loadProfilesAndPets(ids: string[]): Promise<Map<string, Row>> {
   if (ids.length === 0) return new Map();
   const [{ data: profs }, { data: pets }] = await Promise.all([
-    supabase.from("profiles").select("id, display_name, streak_days").in("id", ids),
+    supabase.from("profiles").select("id, display_name, streak_days, avatar_url").in("id", ids),
     supabase.from("pets").select("*").in("user_id", ids),
   ]);
   const profMap = new Map((profs ?? []).map((p: any) => [p.id, p]));
@@ -40,6 +41,7 @@ async function loadProfilesAndPets(ids: string[]): Promise<Map<string, Row>> {
       ...pet,
       display_name: prof.display_name ?? "无名氏",
       streak_days: prof.streak_days ?? 0,
+      avatar_url: prof.avatar_url ?? null,
     } as Row);
   }
   return out;
@@ -177,11 +179,11 @@ function FriendsPage() {
           <div className="ink-card rounded-2xl divide-y divide-foreground/10">
             {friends.map((r) => (
               <div key={r.user_id} className="flex items-center gap-4 p-4">
-                <BeastAvatar species={r.species} size={48} />
+                <BeastAvatar species={r.species} size={48} avatarUrl={r.avatar_url} name={r.display_name} />
                 <div className="flex-1 min-w-0">
                   <div className="font-display text-xl text-primary truncate">
-                    {r.name}
-                    <span className="text-sm text-muted-foreground ml-2">道友 · {r.display_name}</span>
+                    {r.display_name}
+                    <span className="text-sm text-muted-foreground ml-2">· {r.name}</span>
                   </div>
                   <div className="text-xs text-muted-foreground tracking-widest mt-1">
                     {STAGE_TITLES[r.evolution_stage]} · 战力 {r.battle_power}
@@ -225,11 +227,11 @@ function FriendsPage() {
               <div className="ink-card rounded-2xl divide-y divide-foreground/10">
                 {incoming.map(({ from, row }) => (
                   <div key={from} className="flex items-center gap-4 p-4">
-                    {row && <BeastAvatar species={row.species} size={48} />}
+                    {row && <BeastAvatar species={row.species} size={48} avatarUrl={row.avatar_url} name={row.display_name} />}
                     <div className="flex-1 min-w-0">
                       <div className="font-display text-lg text-primary truncate">
-                        {row?.name ?? "未知"}
-                        <span className="text-sm text-muted-foreground ml-2">道友 · {row?.display_name ?? "—"}</span>
+                        {row?.display_name ?? "未知"}
+                        <span className="text-sm text-muted-foreground ml-2">· {row?.name ?? "—"}</span>
                       </div>
                       {row && <div className="text-xs text-muted-foreground tracking-widest mt-1">战力 {row.battle_power}</div>}
                     </div>
@@ -249,11 +251,11 @@ function FriendsPage() {
               <div className="ink-card rounded-2xl divide-y divide-foreground/10">
                 {outgoing.map(({ to, row }) => (
                   <div key={to} className="flex items-center gap-4 p-4">
-                    {row && <BeastAvatar species={row.species} size={40} />}
+                    {row && <BeastAvatar species={row.species} size={40} avatarUrl={row.avatar_url} name={row.display_name} />}
                     <div className="flex-1 min-w-0">
                       <div className="font-display text-base text-foreground truncate">
-                        {row?.name ?? "未知"}
-                        <span className="text-sm text-muted-foreground ml-2">{row?.display_name ?? ""}</span>
+                        {row?.display_name ?? "未知"}
+                        <span className="text-sm text-muted-foreground ml-2">· {row?.name ?? ""}</span>
                       </div>
                     </div>
                     <span className="text-xs text-muted-foreground tracking-widest">等候回应…</span>
@@ -280,11 +282,11 @@ function FriendsPage() {
           <div className="ink-card rounded-2xl divide-y divide-foreground/10">
             {searchRows.map((r) => (
               <div key={r.user_id} className="flex items-center gap-4 p-4">
-                <BeastAvatar species={r.species} size={44} />
+                <BeastAvatar species={r.species} size={44} avatarUrl={r.avatar_url} name={r.display_name} />
                 <div className="flex-1 min-w-0">
                   <div className="font-display text-lg text-primary truncate">
-                    {r.name}
-                    <span className="text-sm text-muted-foreground ml-2">道友 · {r.display_name}</span>
+                    {r.display_name}
+                    <span className="text-sm text-muted-foreground ml-2">· {r.name}</span>
                   </div>
                   <div className="text-xs text-muted-foreground tracking-widest mt-1">
                     {STAGE_TITLES[r.evolution_stage]} · 战力 {r.battle_power}
