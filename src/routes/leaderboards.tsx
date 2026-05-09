@@ -48,7 +48,7 @@ function Boards() {
   const RULES: Record<typeof tab, string> = {
     attr: "按异兽三维（力量 + 速度 + 体质 ）总和由高到低排名，数值越高名次越前，勤加修炼即可登榜。",
     power: "以挑战决定座次。唯有在斗兽台战胜排名高于自己的对手，才能取而代之。",
-    streak: "按连续打卡天数排名，天数越多名次越前，断签即清零，贵在坚持。",
+    streak: "按连续打卡天数排名，天数越多名次越前，贵在坚持。",
   };
 
   const myIndex = user ? rows.findIndex((r) => r.user_id === user.id) : -1;
