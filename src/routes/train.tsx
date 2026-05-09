@@ -179,11 +179,8 @@ function TrainPage() {
               <div className="text-center text-sm font-display tracking-widest">
                 {status.message}
               </div>
-              <div className="h-2 rounded-full bg-secondary/40 overflow-hidden">
-                <div
-                  className="h-full bg-primary transition-all"
-                  style={{ width: `${Math.round(status.progress * 100)}%` }}
-                />
+              <div className="ink-progress">
+                <div className="ink-progress-fill" style={{ width: `${Math.round(status.progress * 100)}%` }} />
               </div>
             </div>
           )}
