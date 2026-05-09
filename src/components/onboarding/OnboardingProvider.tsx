@@ -39,19 +39,28 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   // 拉取 onboarded_at
   useEffect(() => {
     if (loading) return;
+    // 用户切换时先重置，避免沿用上一个账号的状态把旧账号误判成新账号
+    setFetched(false);
+    setOnboardedAt(null);
     if (!user) {
-      setOnboardedAt(null);
       setFetched(true);
       return;
     }
     let cancelled = false;
     void (async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("profiles")
         .select("onboarded_at")
         .eq("id", user.id)
         .maybeSingle();
       if (cancelled) return;
+      if (error) {
+        // 读取失败时不要把账号当成"未引导"导致误弹引导
+        console.warn("load onboarded_at failed", error);
+        setOnboardedAt(new Date().toISOString());
+        setFetched(true);
+        return;
+      }
       setOnboardedAt((data as any)?.onboarded_at ?? null);
       setFetched(true);
     })();
