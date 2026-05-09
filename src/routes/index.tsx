@@ -3,6 +3,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import heroBeast from "@/assets/hero-kinetic-beast.png";
+import iconSpeed from "@/assets/icon-speed.png";
+import iconStrength from "@/assets/icon-strength.png";
+import iconVitality from "@/assets/icon-vitality.png";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -89,9 +92,9 @@ function Index() {
           <div className="hidden md:block text-xs font-display tracking-[0.4em] text-muted-foreground">·摄像头自动计数·</div>
         </div>
         <div className="grid md:grid-cols-3 gap-5">
-          <Way kanji="速" title="深蹲" desc="炼速度 · 闪避更高" stat="+1 速 / 次" />
-          <Way kanji="力" title="俯卧撑" desc="炼力量 · 伤害更高" stat="+1 力 / 次" />
-          <Way kanji="体" title="仰卧起坐" desc="炼体质 · 血量更厚" stat="+1 体 / 次" />
+          <Way icon={iconSpeed} title="深蹲" desc="炼速度 · 闪避更高" stat="+1 速 / 次" />
+          <Way icon={iconStrength} title="俯卧撑" desc="炼力量 · 伤害更高" stat="+1 力 / 次" />
+          <Way icon={iconVitality} title="仰卧起坐" desc="炼体质 · 血量更厚" stat="+1 体 / 次" />
         </div>
       </section>
 
@@ -148,12 +151,10 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-function Way({ kanji, title, desc, stat }: { kanji: string; title: string; desc: string; stat: string }) {
+function Way({ icon, title, desc, stat }: { icon: string; title: string; desc: string; stat: string }) {
   return (
     <div className="ink-card rounded-2xl p-6 flex items-center gap-5 group hover:-translate-y-1 transition-transform">
-      <div className="font-display text-6xl text-primary/80 group-hover:text-primary transition-colors leading-none">
-        {kanji}
-      </div>
+      <img src={icon} alt="" className="w-16 h-16 object-contain shrink-0" />
       <div className="flex-1">
         <h3 className="font-display text-xl mb-1 tracking-widest">{title}</h3>
         <p className="text-muted-foreground text-sm mb-2">{desc}</p>
