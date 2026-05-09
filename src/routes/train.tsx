@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePoseCounter, type ExerciseType } from "@/hooks/use-pose-counter";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useOnboarding } from "@/components/onboarding/OnboardingProvider";
 
 export const Route = createFileRoute("/train")({
   head: () => ({ meta: [{ title: "修行 · 动能异兽" }] }),
@@ -20,6 +21,7 @@ const EXERCISES: { id: ExerciseType; kanji: string; title: string; stat: string;
 function TrainPage() {
   const { user, loading } = useAuth();
   const nav = useNavigate();
+  const { onboarded, markOnboarded } = useOnboarding();
   const [active, setActive] = useState(false);
   const [exercise, setExercise] = useState<ExerciseType>("squat");
   const {
@@ -67,6 +69,12 @@ function TrainPage() {
     if (error) {
       console.error("apply_exercise failed", error);
       toast.error("同步失败，请稍后重试");
+      return;
+    }
+    // 首训完成 → 解锁全部殿堂
+    if (!onboarded && ex === "squat") {
+      await markOnboarded();
+      toast.success("入门已成 · 全部殿堂已解锁", { duration: 4000 });
     }
   }
 
@@ -104,6 +112,7 @@ function TrainPage() {
         {EXERCISES.map((e) => (
           <button
             key={e.id}
+            data-tour={e.id === "squat" ? "train-squat-card" : undefined}
             onClick={() => { if (!active) setExercise(e.id); }}
             className={`ink-card rounded-2xl p-6 text-left transition-all ${
               exercise === e.id ? "ring-2 ring-primary -translate-y-1" : "hover:-translate-y-1"
@@ -182,7 +191,7 @@ function TrainPage() {
 
         <div className="flex gap-3 mt-4 justify-center">
           {!active ? (
-            <Button size="lg" onClick={start} className="font-display tracking-widest text-lg px-10">
+            <Button data-tour="train-start-btn" size="lg" onClick={start} className="font-display tracking-widest text-lg px-10">
               启动修行
             </Button>
           ) : (
