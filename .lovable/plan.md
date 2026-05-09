@@ -1,21 +1,21 @@
 ## 问题
 
-当前 `guestPromptOpen` 的 `onOpenChange` 关闭分支调用了 `declineGuest()`，而 `declineGuest()` 会打开「覆盖旧游客账号」确认弹窗。结果是：用户点右上角叉号（或按 Esc / 点遮罩）想关掉提示，却被强制弹出覆盖确认；如果再在覆盖弹窗点「否」，又因为旧缓存仍在被弹回「继续 / 新建」提示，形成死循环。
+当前点击「游客入山」按钮时，若检测到本地有上次游客缓存，会直接弹出「覆盖旧游客账号？」的双选确认框。这与「检测到上次游客身份」的入口体验不一致——用户其实更可能想继续上次的游客身份，而不是直接被询问是否覆盖。
 
 ## 改动
 
 **唯一改动文件**：`src/routes/auth.tsx`
 
-1. 把「点叉号关闭」与「点新建账号按钮」拆成两条路径：
-   - `<Dialog open={guestPromptOpen} onOpenChange={...}>` 的关闭分支改为只 `setGuestPromptOpen(false)`，不再触发覆盖确认。用户点叉号 = 单纯关闭，回到邮箱登录界面，旧游客缓存保持不变（下次刷新仍可继续）。
-   - 「新建账号」按钮继续调用 `declineGuest()`，弹出覆盖确认（这是用户的明确意图）。
+修改 `guestLogin()` 函数：当检测到 `loadGuestSession()` 存在时，不再设置 `pendingAction="guest"` 并打开 `overwriteOpen`，改为直接打开 `guestPromptOpen`（即「继续游客 / 新建账号」选择框）。
 
-2. `cancelOverwrite()` 中「重新打开 guestPromptOpen」的逻辑保留，但只在 `pendingAction === "signup"` 且来源是 guestPrompt 时才重弹；从邮箱表单 submit 或游客入山按钮触发的覆盖弹窗，点「否」就单纯关闭，不再重弹 guestPrompt，避免循环。
-   
-   实现：新增一个 `overwriteSource` 状态（`"guestPrompt" | "form" | null`），`declineGuest` 设为 `"guestPrompt"`，`submit` / `guestLogin` 设为 `"form"`。`cancelOverwrite` 只在 `overwriteSource === "guestPrompt"` 时重开 guestPrompt。
+- 用户点「继续游客」→ 走 `continueAsGuest()`，恢复旧身份；
+- 用户点「新建账号」→ 走原有 `declineGuest()` 流程，弹出覆盖确认（此时是用户的明确意图）；
+- 用户点叉号 → 单纯关闭，回到登录页。
+
+无缓存时 `guestLogin()` 行为不变，直接 `doGuestLogin()` 创建新游客。
 
 ## 不改动
 
-- `src/lib/guest-cleanup.functions.ts`、`src/lib/guest-session.ts`
-- 数据库、RLS、其他页面
-- `confirmOverwrite` / `continueAsGuest` / `doSubmit` / `doGuestLogin` 主流程
+- `submit()` 中邮箱注册/登录的覆盖确认逻辑保持原样（邮箱场景下用户已选定要切换到邮箱账号，覆盖确认是合理的）。
+- `declineGuest` / `continueAsGuest` / `confirmOverwrite` / `cancelOverwrite` 主流程不变。
+- `src/lib/guest-cleanup.functions.ts`、`src/lib/guest-session.ts`、数据库、其他页面均不动。

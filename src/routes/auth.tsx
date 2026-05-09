@@ -114,9 +114,7 @@ function AuthPage() {
 
   async function guestLogin() {
     if (loadGuestSession()) {
-      setPendingAction("guest");
-      setOverwriteSource("form");
-      setOverwriteOpen(true);
+      setGuestPromptOpen(true);
       return;
     }
     await doGuestLogin();
