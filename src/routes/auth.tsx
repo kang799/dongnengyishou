@@ -172,7 +172,7 @@ function AuthPage() {
         });
       }
       toast.success("已以游客身份入山，30 天未登录将自动消散");
-      nav({ to: "/pet" });
+      nav({ to: "/" });
     } catch (err: any) {
       toast.error(err.message || "游客登录失败");
     } finally {
@@ -252,7 +252,7 @@ function AuthPage() {
             await supabase.from("profiles").update({ avatar_url: url }).eq("id", data.user.id);
           }
         }
-        nav({ to: "/pet" });
+        nav({ to: "/" });
       }
     } catch (err: any) {
       toast.error(err.message || "出错了");
