@@ -14,6 +14,7 @@ import { Toaster } from "sonner";
 import { SiteHeader } from "@/components/site-header";
 import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 import { WelcomeCarousel } from "@/components/onboarding/WelcomeCarousel";
+import { SpotlightTour } from "@/components/onboarding/SpotlightTour";
 
 function NotFoundComponent() {
   return (
@@ -136,6 +137,7 @@ function RootComponent() {
           </footer>
         </div>
         <WelcomeCarousel />
+        <SpotlightTour />
         <Toaster position="top-center" richColors />
       </OnboardingProvider>
     </QueryClientProvider>
