@@ -13,7 +13,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { saveGuestSession, loadGuestSession, clearGuestSession } from "@/lib/guest-session";
+import { saveGuestSession, loadGuestSession, clearGuestSession, clearSupabaseLocalAuth } from "@/lib/guest-session";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "招神入册 · 动能异兽" }] }),
@@ -43,20 +43,18 @@ function AuthPage() {
     if (!cache) { setGuestPromptOpen(false); return; }
     setGuestRestoring(true);
     try {
-      const { error } = await supabase.auth.setSession({
-        access_token: cache.access_token,
+      // 先清掉任何残留的本地会话，避免和旧 sb-* 缓存冲突
+      clearSupabaseLocalAuth();
+      // 直接用 refresh_token 换取新 session（access_token 1 小时已过期，setSession 不会自动刷新匿名 token）
+      const { data, error } = await supabase.auth.refreshSession({
         refresh_token: cache.refresh_token,
       });
-      if (error) throw error;
-      // refresh & save new tokens
-      const { data } = await supabase.auth.getSession();
-      if (data.session) {
-        saveGuestSession({
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-          user_id: data.session.user.id,
-        });
-      }
+      if (error || !data.session) throw error ?? new Error("no session");
+      saveGuestSession({
+        access_token: data.session.access_token,
+        refresh_token: data.session.refresh_token,
+        user_id: data.session.user.id,
+      });
       toast.success("已恢复上次游客身份");
       setGuestPromptOpen(false);
       nav({ to: "/pet" });
