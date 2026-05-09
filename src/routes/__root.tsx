@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useRouterState,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -120,6 +121,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -128,7 +130,9 @@ function RootComponent() {
           <SiteHeader />
           <OnboardingTaskBar />
           <main className="flex-1">
-            <Outlet />
+            <div key={pathname} className="ink-bleed-in">
+              <Outlet />
+            </div>
           </main>
           <footer className="text-center text-xs text-muted-foreground py-6 font-display tracking-widest">
             · 异兽录 · 以汗水化神兽 ·
