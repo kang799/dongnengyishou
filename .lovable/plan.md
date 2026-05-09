@@ -1,31 +1,18 @@
-## 修改两处前端体验问题
+## 在封神榜三榜下加入排名规则说明
 
-### 1. 斗兽台战斗日志自动滚动
+在 `src/routes/leaderboards.tsx` 中，根据当前 `tab` 在标签栏下方插入一段简短的规则说明文字（小号、muted 色，居中，font-display 风格），让用户切换榜单时即时了解该榜的排名依据。
 
-`src/routes/arena.tsx`
-- 给战斗日志容器加一个 `ref`（`logRef`）。
-- 新增 `useEffect`，依赖 `battleEvents.length`，每当新增一回合时执行 `logRef.current?.scrollTo({ top: scrollHeight, behavior: "smooth" })`，让最新一条始终可见。
-- 另外在战斗结束（`result` 变化）时再触发一次，保证"胜/败"字样也滚到视窗内。
+### 文案
 
-### 2. 榜单切磋按钮稳定显示
+- **属性榜**：按异兽四维（力量 + 速度 + 体质 + 智力）总和由高到低排名，数值越高名次越前，修炼属性即可登榜。
+- **战力榜**：以"挑战"决定座次。战力值＝攻击力＋生命值，仅供参考；只有在斗兽台击败排名高于自己的对手，才能取代其位次，败者及之后的玩家依次顺延。
+- **打卡榜**：按连续打卡天数排名，天数越多名次越前，断签则清零，贵在坚持。
 
-`src/routes/leaderboards.tsx`
-- 现状：`{user && r.user_id !== user.id && <Button>切磋</Button>}`。在 848px 视口下，行内 `flex-1` 名称区会把按钮挤出可视区，看上去像"按钮消失"。
-- 调整每行布局：
-  - 给名称容器加 `min-w-0`，让 truncate 生效不再挤压右侧。
-  - 给"切磋"按钮加 `shrink-0`，并保留固定宽度（如 `w-20`）。
-  - 数值列也加 `shrink-0` + `text-right w-20`，避免被挤压。
-- 渲染逻辑保持"非自己即显示按钮"，但把判断从 `user && ...` 改为更稳定的形式：始终渲染占位（保持行高一致），用 `invisible` 控制自己那行的按钮隐藏，确保布局不抖动、按钮永远固定在右侧。
+### 实现要点
+
+- 用一个 `RULES: Record<tab, string>` 常量集中管理三段文案，便于维护。
+- 渲染位置：现有 `TABS` 按钮组的下方、"我的位置"卡片的上方，外层用 `ink-card` 风格的轻量卡片或者直接 `text-sm text-muted-foreground tracking-wide text-center max-w-2xl mx-auto mb-6` 段落，避免视觉过重。
 
 ### 不改动
 
-- 后台 RPC、排名规则、战斗算法。
-- "我的位置"卡片的"定位"按钮逻辑不变。
-
-### 技术细节
-
-- 自动滚动用原生 `scrollTo`，无需新依赖；用 `requestAnimationFrame` 包一层避免在 DOM 还未追加新行时取错 `scrollHeight`。
-- 行布局示意：
-```text
-[名次] [头像] [名称 flex-1 min-w-0 truncate] [数值 w-20 shrink-0] [按钮 w-20 shrink-0]
-```
+- 排名算法、数据请求、按钮逻辑、其它页面。
