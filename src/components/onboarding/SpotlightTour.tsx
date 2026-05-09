@@ -131,10 +131,11 @@ export function SpotlightTour() {
       {/* 4 块遮罩边框 */}
       {rect ? (
         <>
-          <div className="absolute bg-black/60 pointer-events-auto" style={{ top: 0, left: 0, right: 0, height: Math.max(0, rect.top - PAD) }} onClick={endTour} />
-          <div className="absolute bg-black/60 pointer-events-auto" style={{ top: rect.top - PAD, left: 0, width: Math.max(0, rect.left - PAD), height: rect.height + PAD * 2 }} onClick={endTour} />
-          <div className="absolute bg-black/60 pointer-events-auto" style={{ top: rect.top - PAD, left: rect.left + rect.width + PAD, right: 0, height: rect.height + PAD * 2 }} onClick={endTour} />
-          <div className="absolute bg-black/60 pointer-events-auto" style={{ top: rect.top + rect.height + PAD, left: 0, right: 0, bottom: 0 }} onClick={endTour} />
+          {/* 遮罩拦截点击事件，但点击不会关闭引导，强制用户按步骤推进 */}
+          <div className="absolute bg-black/60 pointer-events-auto cursor-not-allowed" style={{ top: 0, left: 0, right: 0, height: Math.max(0, rect.top - PAD) }} />
+          <div className="absolute bg-black/60 pointer-events-auto cursor-not-allowed" style={{ top: rect.top - PAD, left: 0, width: Math.max(0, rect.left - PAD), height: rect.height + PAD * 2 }} />
+          <div className="absolute bg-black/60 pointer-events-auto cursor-not-allowed" style={{ top: rect.top - PAD, left: rect.left + rect.width + PAD, right: 0, height: rect.height + PAD * 2 }} />
+          <div className="absolute bg-black/60 pointer-events-auto cursor-not-allowed" style={{ top: rect.top + rect.height + PAD, left: 0, right: 0, bottom: 0 }} />
           {/* 高亮虚线框 */}
           <div
             className="absolute rounded-xl border-2 border-primary shadow-[0_0_0_4px_rgba(176,47,32,0.25)] animate-pulse"
@@ -142,7 +143,7 @@ export function SpotlightTour() {
           />
         </>
       ) : (
-        <div className="absolute inset-0 bg-black/60 pointer-events-auto" onClick={endTour} />
+        <div className="absolute inset-0 bg-black/60 pointer-events-auto cursor-not-allowed" />
       )}
 
       {/* 卡片 */}
@@ -162,12 +163,9 @@ export function SpotlightTour() {
           <p className="text-[11px] text-muted-foreground">（未找到目标元素，可点「下一步」继续）</p>
         )}
         <div className="flex items-center justify-between pt-1">
-          <button
-            onClick={endTour}
-            className="text-xs font-display tracking-widest text-foreground/50 hover:text-foreground"
-          >
-            跳过 ›
-          </button>
+          <span className="text-[11px] text-muted-foreground tracking-widest">
+            新手引导 · 跟随指引完成
+          </span>
           {(showNext || missing) && (
             <button
               onClick={() => { if (step.last) endTour(); else nextTourStep(); }}

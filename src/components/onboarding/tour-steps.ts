@@ -23,7 +23,7 @@ export const TOUR_STEPS: TourStep[] = [
   },
   {
     route: "/pet",
-    selector: "[data-tour='nav-train']",
+    selector: "[data-tour='pet-go-train']",
     title: "前往修行",
     body: "点此进入修行殿堂，开启第一次动作识别。",
     waitForClick: true,

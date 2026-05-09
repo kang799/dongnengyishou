@@ -154,7 +154,9 @@ export function SiteHeader() {
                 variant="ghost"
                 size="sm"
                 onClick={async () => {
-                  await supabase.auth.signOut();
+                  // 仅清除本地会话，保留后端 refresh token，
+                  // 让游客可以通过本地缓存恢复身份
+                  await supabase.auth.signOut({ scope: "local" });
                   window.location.href = "/";
                 }}
               >
