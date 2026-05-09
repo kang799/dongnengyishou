@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { STAGE_TITLES, totalAttr } from "@/lib/beasts";
-import { toast } from "sonner";
 
 export const Route = createFileRoute("/friends")({
   head: () => ({ meta: [{ title: "道友 · 动能异兽" }] }),
