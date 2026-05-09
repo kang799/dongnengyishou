@@ -14,7 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { loadGuestSession, clearSupabaseLocalAuth, saveGuestSession } from "@/lib/guest-session";
+import { clearSupabaseLocalAuth, saveGuestSession } from "@/lib/guest-session";
 const NAV = [
   { to: "/pet", label: "我的异兽" },
   { to: "/train", label: "修行" },
