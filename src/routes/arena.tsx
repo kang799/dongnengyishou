@@ -110,6 +110,17 @@ function Arena() {
               {result === "win" ? "胜！" : "败！"}
             </div>
           )}
+          {!battling && !result && (
+            <div className="mt-4 flex justify-center">
+              <Button
+                size="lg"
+                onClick={() => challenge(opponent)}
+                className="font-display tracking-[0.3em] px-10"
+              >
+                开 战
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
