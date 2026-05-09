@@ -1,18 +1,13 @@
 ## 目标
-点击「是·覆盖」并完成旧游客消散后，应根据后续动作直接跳到主页 `/`，而不是停留在登陆页或跳到 `/pet`。
+新的游客账号覆盖旧游客账号后，必须保持已登录状态并直接显示已登录后的页面，不再停留或回到登录页。
 
-## 改动（仅 `src/routes/auth.tsx`）
+## 计划
+1. 在 `src/routes/auth.tsx` 里为游客登录成功后的跳转加一个“会话确认”步骤：`signInAnonymously` 成功后先保存新游客 session，再显式调用 `supabase.auth.setSession(...)` 和 `supabase.auth.getSession()` 确认浏览器已恢复新会话。
+2. 修改 `doGuestLogin()` 的跳转：确认 session 存在后使用 `nav({ to: "/pet", replace: true })`，让用户直接进入已登录的「我的异兽」页；若用户手动回首页，首页也会显示已登录状态。
+3. 在覆盖流程 `confirmOverwrite()` 中保留当前“先删除旧游客 → 清旧缓存 → 创建新游客”的顺序，但确保清理旧缓存不会发生在新游客 session 建立之后。
+4. 如有必要，在 `useAuth` 里避免登录态初始化竞态：初始 `getSession()` 与后续 `onAuthStateChange` 都能正确设置 `loading=false`，防止保护页误判为未登录后跳回 `/auth`。
 
-1. **`doGuestLogin()`**：成功后 `nav({ to: "/" })`（原为 `/pet`）。
-2. **`doSubmit()` 登录分支**：登录成功后 `nav({ to: "/" })`（原为 `/pet`）。
-3. **`doSubmit()` 注册分支**：保持现状——仍需邮箱验证后再由 `/auth/callback` 跳转到 `/`，不能在未验证时进入主页（与上一轮已确认的「必须验邮箱后自动入山」一致）。覆盖后若动作是 signup，会清掉旧游客 → 发送验证邮件 → 显示「神谕待启」提示卡，等用户去邮箱点链接。
-4. **`confirmOverwrite()`**：逻辑不变（仍然根据 `pendingAction` 调 `doGuestLogin` / `doSubmit`），由上面两处的 nav 改动负责跳转到 `/`。
-
-## 不动的部分
-- `guestPromptOpen` / `overwriteOpen` 弹窗本身的触发与文案
-- `cancelOverwrite()`、`continueAsGuest()`、`declineGuest()`、`resendVerifyEmail()`
-- `src/routes/auth.callback.tsx`、`guest-cleanup.functions.ts`、`guest-session.ts`
-- 数据库 / RLS / 其他页面
-
-## 备注
-若你希望「覆盖后即便是注册分支也立刻进主页（跳过邮箱验证）」，请告诉我——这会与上一轮「必须验邮箱后自动入山」的决定冲突，需要先撤销那条规则。
+## 不改动
+- 邮箱注册仍然必须验证后才能自动入山。
+- 旧游客覆盖确认弹窗文案和删除逻辑不变。
+- 不改数据库和权限规则。

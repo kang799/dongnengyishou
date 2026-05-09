@@ -89,9 +89,9 @@ function AuthPage() {
   }
 
   function declineGuest() {
-    // 「新建账号」不再直接清缓存，先弹覆盖确认
+    // 「新建账号」= 覆盖旧游客并以新游客身份直接入山
     setGuestPromptOpen(false);
-    setPendingAction("signup");
+    setPendingAction("guest");
     setOverwriteSource("guestPrompt");
     setOverwriteOpen(true);
   }
@@ -170,9 +170,18 @@ function AuthPage() {
           refresh_token: data.session.refresh_token,
           user_id: data.session.user.id,
         });
+        // 确认浏览器 supabase 客户端已持有新会话，避免跳转后被保护页判定为未登录
+        try {
+          await supabase.auth.setSession({
+            access_token: data.session.access_token,
+            refresh_token: data.session.refresh_token,
+          });
+        } catch (e) {
+          console.warn("setSession after guest signup failed", e);
+        }
       }
       toast.success("已以游客身份入山，30 天未登录将自动消散");
-      nav({ to: "/" });
+      nav({ to: "/", replace: true });
     } catch (err: any) {
       toast.error(err.message || "游客登录失败");
     } finally {
