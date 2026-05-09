@@ -101,7 +101,7 @@ function FriendsPage() {
               variant="outline"
               size="sm"
               className="font-display tracking-widest"
-              onClick={() => nav({ to: "/arena" })}
+              onClick={() => nav({ to: "/arena", search: { vs: r.user_id } })}
             >
               切磋
             </Button>
