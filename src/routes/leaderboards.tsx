@@ -12,7 +12,7 @@ export const Route = createFileRoute("/leaderboards")({
   component: Boards,
 });
 
-type Row = { user_id: string; name: string; species: string; strength: number; speed: number; vitality: number; battle_power: number; evolution_stage: number; display_name?: string; streak_days?: number; avatar_url?: string | null };
+type Row = { user_id: string; name: string; species: string; strength: number; speed: number; vitality: number; battle_power: number; evolution_stage: number; rank: number; display_name?: string; streak_days?: number; avatar_url?: string | null };
 
 function Boards() {
   const { user } = useAuth();
@@ -33,7 +33,7 @@ function Boards() {
         avatar_url: profMap.get(p.user_id)?.avatar_url ?? null,
       }));
       if (tab === "attr") merged.sort((a, b) => totalAttr(b) - totalAttr(a));
-      else if (tab === "power") merged.sort((a, b) => b.battle_power - a.battle_power);
+      else if (tab === "power") merged.sort((a, b) => a.rank - b.rank);
       else merged.sort((a, b) => (b.streak_days ?? 0) - (a.streak_days ?? 0));
       setRows(merged.slice(0, 50));
     })();

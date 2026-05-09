@@ -17,7 +17,7 @@ export const Route = createFileRoute("/arena")({
 type Pet = {
   id: string; user_id: string; name: string; species: string;
   strength: number; speed: number; vitality: number;
-  evolution_stage: number; battle_power: number; wins: number; losses: number;
+  evolution_stage: number; battle_power: number; wins: number; losses: number; rank: number;
 };
 
 function Arena() {
@@ -38,13 +38,16 @@ function Arena() {
   async function load() {
     if (!user) return;
     const { data: my } = await supabase.from("pets").select("*").eq("user_id", user.id).maybeSingle();
+    if (my) setMe(my as Pet);
+    // 候选对手：只列出排名比我靠前者（rank 数字更小）
+    const myRank = (my as any)?.rank ?? Number.MAX_SAFE_INTEGER;
     const { data: opps } = await supabase
       .from("pets")
       .select("*")
       .neq("user_id", user.id)
-      .order("battle_power", { ascending: true })
+      .lt("rank", myRank)
+      .order("rank", { ascending: false })
       .limit(20);
-    if (my) setMe(my as Pet);
     setOpponents((opps as Pet[]) ?? []);
     // 若带 vs，自动锁定该对手
     if (vs) {
@@ -70,14 +73,25 @@ function Arena() {
       setBattling(false);
       return;
     }
-    const result = data as unknown as { winner: "challenger" | "defender"; events: BattleEvent[] };
+    const result = data as unknown as {
+      winner: "challenger" | "defender";
+      events: BattleEvent[];
+      rank_changed?: boolean;
+      my_new_rank?: number;
+    };
     for (let i = 0; i < result.events.length; i++) {
       await new Promise((r) => setTimeout(r, 600));
       setBattleEvents((prev) => [...prev, result.events[i]]);
     }
     const won = result.winner === "challenger";
     setResult(won ? "win" : "lose");
-    toast[won ? "success" : "error"](won ? "胜！战力提升" : "败！再去修行");
+    if (won && result.rank_changed) {
+      toast.success(`挑战成功，登第 ${result.my_new_rank} 名！`);
+    } else if (won) {
+      toast.success("胜！排名不变（对手位次低于自己）");
+    } else {
+      toast.error("败！排名不变，再去修行");
+    }
     setBattling(false);
     load();
   }
@@ -87,7 +101,9 @@ function Arena() {
   return (
     <div className="container mx-auto px-4 py-10 max-w-6xl space-y-6">
       <h1 className="font-display text-4xl tracking-widest text-center">斗 兽 台</h1>
-      <p className="text-center text-muted-foreground tracking-widest">挑战其他道友，胜则取代其战力榜排名</p>
+      <p className="text-center text-muted-foreground tracking-widest">
+        挑战排名靠前的道友，胜则取代其位次（当前第 {me.rank} 名）
+      </p>
 
       {opponent && (
         <div className="ink-card rounded-3xl p-6">
@@ -125,12 +141,14 @@ function Arena() {
       )}
 
       <div className="ink-card rounded-2xl p-6">
-        <h2 className="font-display text-2xl tracking-widest mb-4 border-b border-foreground/15 pb-2">候选对手</h2>
+        <h2 className="font-display text-2xl tracking-widest mb-4 border-b border-foreground/15 pb-2">
+          候选对手 · 排名靠前者
+        </h2>
         <div className="grid md:grid-cols-2 gap-3">
           {opponents.map((o) => (
             <div key={o.id} className="flex items-center justify-between rounded-xl border border-foreground/10 p-4 bg-background/50">
               <div>
-                <div className="font-display text-xl text-primary">{o.name}</div>
+                <div className="font-display text-xl text-primary">第 {o.rank} 名 · {o.name}</div>
                 <div className="text-xs text-muted-foreground tracking-widest">
                   {STAGE_TITLES[o.evolution_stage]} · 战力 {o.battle_power}
                 </div>
@@ -144,7 +162,9 @@ function Arena() {
             </div>
           ))}
           {opponents.length === 0 && (
-            <div className="col-span-2 text-center py-8 text-muted-foreground">暂无对手，邀请好友共修</div>
+            <div className="col-span-2 text-center py-8 text-muted-foreground">
+              {me.rank === 1 ? "已是榜首，无人在前" : "暂无更靠前的对手"}
+            </div>
           )}
         </div>
       </div>
