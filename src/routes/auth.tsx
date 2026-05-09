@@ -170,6 +170,10 @@ function AuthPage() {
         toast.success(`异兽 ${finalPetName} 已与你结契`);
         nav({ to: "/pet" });
       } else {
+        // 切回邮箱账号前先清掉游客缓存与残留匿名 session，避免 OnboardingProvider
+        // 仍拿着上一个游客 user.id 去查 onboarded_at
+        clearGuestSession();
+        clearSupabaseLocalAuth();
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
           if (/invalid login credentials/i.test(error.message)) {
