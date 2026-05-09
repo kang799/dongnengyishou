@@ -356,7 +356,7 @@ function AuthPage() {
       </div>
     </div>
 
-    <Dialog open={guestPromptOpen} onOpenChange={(o) => { if (!o) declineGuest(); }}>
+    <Dialog open={guestPromptOpen} onOpenChange={(o) => { if (!o) setGuestPromptOpen(false); }}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="font-display tracking-widest text-center">
