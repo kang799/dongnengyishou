@@ -1,46 +1,43 @@
-## 问题定位
+## 目标
 
-`OnboardingProvider` 中存在一个 effect：
-```
-useEffect(() => {
-  if (!user || confirmedUserId !== user.id) return;
-  if (onboardedAt) {
-    setWelcomeOpen(false);
-    setTourActive(false);   // ← 把刚启动的聚光灯关掉
-    setTourStep(0);
-  } else {
-    setWelcomeOpen(true);
-  }
-}, [confirmedUserId, user, onboardedAt]);
-```
+游客退出登陆后回到 auth 页面，再点击「结契」（邮箱注册）/「入山」（邮箱登录）/「游客入山」之前，先弹出二次确认窗：
+- **是 · 覆盖**：彻底删除旧游客账号（包括其在数据库中的痕迹，使其不再出现在榜单与好友列表），然后继续原本的注册/登录/新建游客流程；
+- **否**：仅关闭确认弹窗，回到 auth 页面，让用户重新选择。
 
-`closeWelcome` 的执行流程：
-1. `setWelcomeOpen(false)`
-2. `void markOnboarded()` → 立刻 `setOnboardedAt(now)`
-3. `setTourActive(true)` 启动聚光灯
+## 流程改动
 
-但第 2 步把 `onboardedAt` 由 `null` 变成时间戳，导致上面的 effect 重新跑，命中 `if (onboardedAt)` 分支，把 `tourActive` 又改回 `false`。结果聚光灯一闪而过（实际是没显示）。
+1. **入口拦截**：在 `src/routes/auth.tsx` 中，对三个入口加一道前置检查：
+   - 邮箱表单 `submit`（signup / signin 两种 mode）
+   - 「游客入山」按钮 `guestLogin`
+   
+   若 `loadGuestSession()` 仍存在缓存，则不直接执行原逻辑，而是打开「覆盖确认弹窗」并记录待执行的动作类型。
 
-新账号是这种情况：刚确认时 `onboardedAt` 为 null → 弹欢迎卷轴 → 用户点"入山修行"→ markOnboarded 把 onboardedAt 写为现在 → effect 二次触发 → 聚光灯被关闭。
+2. **覆盖确认弹窗**：新增 `overwritePromptOpen` 状态与 `pendingAction`（`"signup" | "signin" | "guest"`）。
+   - 标题：「覆盖旧游客账号？」
+   - 文案：「上次的游客异兽与修行数据将被永久消散，无法找回。是否继续？」
+   - 「否」按钮：`setOverwritePromptOpen(false)` + `setPendingAction(null)`，不做任何破坏性操作。
+   - 「是 · 覆盖」按钮：先调用删除接口，成功后 `clearGuestSession()` + `clearSupabaseLocalAuth()`，再根据 `pendingAction` 走真正的 signup / signin / guestLogin。
 
-## 修复方案
+3. **页面初始的「检测到上次游客身份」对话框**：保持原样（继续/新建二选一），其中「新建账号」按钮不再只 `clearGuestSession`，而是触发同一个「覆盖确认弹窗」，避免误删。
 
-把"账号确认时一次性同步 UI 状态"和"会话内状态变化"解耦：
-
-1. 改造该 effect：只依赖 `confirmedUserId`（不再监听 `onboardedAt`），在它从 null 切到某个 user.id 那一刻读取一次当时的 onboardedAt 决定弹欢迎或重置 tour。会话内 `markOnboarded` 引发的 `onboardedAt` 变化不再触发它，于是 `closeWelcome` 启动的聚光灯不会被覆盖。
-
-2. 用 `useRef`（或在切账号的 effect 里把 ref 清空）保存上一次已经"应用过初始 UI"的 user.id，避免同一账号重复执行。
-
-3. `closeWelcome` 内部顺序保持不变即可：先 `markOnboarded` 再 `setTourActive(true)`。
-
-4. 切账号那段 effect 仍然负责清场：`setWelcomeOpen(false)` / `setTourActive(false)` / `setTourStep(0)` / `setConfirmedUserId(null)` / 清空 ref。
+4. **删除旧游客账号**：新增一个 server function（不会暴露 service role 给前端）。
+   - 文件：`src/lib/guest-cleanup.functions.ts`
+   - 输入：`{ user_id: string, refresh_token: string }`
+   - 步骤：
+     1. 用 `refresh_token` 调 `supabase.auth.refreshSession`（用普通 anon 客户端）验证 token 确实属于该 `user_id`，避免任意用户被删除。
+     2. 验证 `profiles.is_guest = true`（只允许删游客）。
+     3. 用 `supabaseAdmin` 依次删除：`exercise_logs` / `battles`（challenger_id 或 defender_id）/ `pets` / `profiles` / `auth.users`（参考已有 `cleanup_inactive_guests` 函数）。
+   - 失败时返回明确错误，前端 toast 提示，不继续后续登录动作。
 
 ## 涉及文件
 
-- `src/components/onboarding/OnboardingProvider.tsx`：拆分两个 effect，引入 `appliedInitialForUserRef`，去掉对 `onboardedAt` 的初始化依赖。
+- `src/routes/auth.tsx`：新增覆盖确认弹窗 UI、`pendingAction` 状态、三处入口拦截、调用删除 server function。
+- `src/lib/guest-cleanup.functions.ts`（新建）：`deleteGuestAccount` server function。
+- 不需要新建迁移；删除逻辑复用现有表结构与 service role。
 
-## 不改动的内容
+## 不改动
 
-- 游客缓存 `onboarded_at` 继承规则保持现状。
-- WelcomeCarousel、SpotlightTour、tour-steps 不动。
-- 邮箱账号、已完成游客恢复登录的行为不变。
+- `OnboardingProvider`、`SpotlightTour`、`WelcomeCarousel`、新手引导逻辑保持现状。
+- 数据库表结构、RLS、`cleanup_inactive_guests` 定时清理函数保持现状。
+- 邮箱账号之间互相切换的逻辑不变。
+- 已删除的游客原本就不会再出现在榜单/好友（`profiles` / `pets` 都被删除），无需额外改前端列表查询。
