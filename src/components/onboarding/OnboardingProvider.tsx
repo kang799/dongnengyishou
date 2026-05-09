@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { markOnboardedLocal, hasOnboardedLocal, clearOnboardedLocal } from "@/lib/guest-session";
 
 type OnboardingCtx = {
   loading: boolean;
@@ -61,7 +62,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   // 首次确认未完成 → 自动弹开场
   useEffect(() => {
     if (!fetched || !user) return;
-    if (!onboardedAt) setWelcomeOpen(true);
+    if (!onboardedAt && !hasOnboardedLocal()) setWelcomeOpen(true);
   }, [fetched, user, onboardedAt]);
 
   const markOnboarded = useCallback(async () => {
@@ -69,6 +70,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     const now = new Date().toISOString();
     setOnboardedAt(now);
     setWelcomeOpen(false);
+    markOnboardedLocal();
     const { error } = await supabase.from("profiles").update({ onboarded_at: now }).eq("id", user.id);
     if (error) console.warn("markOnboarded failed", error);
   }, [user]);
@@ -79,6 +81,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     setWelcomeOpen(true);
     setTourActive(false);
     setTourStep(0);
+    clearOnboardedLocal();
     await supabase.from("profiles").update({ onboarded_at: null }).eq("id", user.id);
   }, [user]);
 
