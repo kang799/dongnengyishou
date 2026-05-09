@@ -63,29 +63,29 @@
 
 :root {
   --radius: 0.5rem;
-  /* 宣纸底色 */
-  --background: oklch(0.93 0.045 88);
-  --foreground: oklch(0.18 0.02 40);
-  --card: oklch(0.91 0.05 86);
-  --card-foreground: oklch(0.18 0.02 40);
-  --popover: oklch(0.93 0.045 88);
-  --popover-foreground: oklch(0.18 0.02 40);
+  /* 暗夜烟墨底色 — 仿《动能异兽》海报 */
+  --background: oklch(0.18 0.012 60);
+  --foreground: oklch(0.94 0.012 80);
+  --card: oklch(0.22 0.014 55);
+  --card-foreground: oklch(0.94 0.012 80);
+  --popover: oklch(0.20 0.012 55);
+  --popover-foreground: oklch(0.94 0.012 80);
   /* 朱砂红 */
-  --primary: oklch(0.5 0.18 28);
+  --primary: oklch(0.62 0.19 28);
   --primary-foreground: oklch(0.97 0.015 85);
-  /* 墨色 */
-  --secondary: oklch(0.28 0.015 60);
+  /* 烟墨青 */
+  --secondary: oklch(0.35 0.04 240);
   --secondary-foreground: oklch(0.97 0.015 85);
-  --muted: oklch(0.87 0.045 84);
-  --muted-foreground: oklch(0.42 0.025 55);
+  --muted: oklch(0.26 0.012 60);
+  --muted-foreground: oklch(0.72 0.018 70);
   /* 古铜 / 金 */
-  --accent: oklch(0.62 0.13 70);
+  --accent: oklch(0.72 0.13 70);
   --accent-foreground: oklch(0.15 0.02 40);
-  --destructive: oklch(0.5 0.22 25);
+  --destructive: oklch(0.55 0.22 25);
   --destructive-foreground: oklch(0.97 0.015 85);
-  --border: oklch(0.74 0.045 70);
-  --input: oklch(0.83 0.045 78);
-  --ring: oklch(0.5 0.18 28);
+  --border: oklch(0.36 0.018 60);
+  --input: oklch(0.28 0.014 60);
+  --ring: oklch(0.62 0.19 28);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -99,13 +99,14 @@
   --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
   --sidebar-border: oklch(0.929 0.013 255.508);
   --sidebar-ring: oklch(0.704 0.04 256.788);
-  --ink: oklch(0.18 0.02 40);
-  --cinnabar: oklch(0.5 0.18 28);
-  --rice-paper: oklch(0.93 0.045 88);
-  --gold: oklch(0.62 0.13 70);
-  --gradient-ink: linear-gradient(180deg, oklch(0.93 0.045 88) 0%, oklch(0.84 0.06 78) 100%);
-  --shadow-ink: 0 8px 30px -8px color-mix(in oklab, var(--ink) 35%, transparent);
-  --shadow-cinnabar: 0 4px 24px -6px color-mix(in oklab, var(--cinnabar) 40%, transparent);
+  --ink: oklch(0.10 0.012 60);
+  --cinnabar: oklch(0.62 0.19 28);
+  --rice-paper: oklch(0.94 0.012 80);
+  --smoke: oklch(0.30 0.012 70);
+  --gold: oklch(0.72 0.13 70);
+  --gradient-ink: radial-gradient(ellipse at 50% 35%, oklch(0.30 0.018 65) 0%, oklch(0.16 0.012 60) 65%, oklch(0.10 0.010 55) 100%);
+  --shadow-ink: 0 12px 40px -10px oklch(0 0 0 / 0.6);
+  --shadow-cinnabar: 0 0 30px -4px color-mix(in oklab, var(--cinnabar) 60%, transparent);
   --font-display: "STKaiti","KaiTi","楷体","Ma Shan Zheng","ZCOOL XiaoWei",serif;
   --font-body: "STSong","SimSun","Noto Serif SC",serif;
 }
@@ -155,16 +156,19 @@
     color: var(--color-foreground);
     font-family: var(--font-body);
     background-image:
-      /* 远山水墨剪影 */
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1600 900' preserveAspectRatio='xMidYMax slice'><defs><linearGradient id='m1' x1='0' y1='0' x2='0' y2='1'><stop offset='0%25' stop-color='%23000' stop-opacity='0'/><stop offset='100%25' stop-color='%23241a14' stop-opacity='0.18'/></linearGradient><linearGradient id='m2' x1='0' y1='0' x2='0' y2='1'><stop offset='0%25' stop-color='%23000' stop-opacity='0'/><stop offset='100%25' stop-color='%231a120c' stop-opacity='0.30'/></linearGradient></defs><path fill='url(%23m1)' d='M0,620 C140,560 240,640 360,580 C500,520 620,640 760,600 C880,560 980,650 1120,610 C1260,570 1400,640 1600,580 L1600,900 L0,900 Z'/><path fill='url(%23m2)' d='M0,720 C160,680 260,760 420,720 C580,680 700,780 880,740 C1040,710 1180,790 1340,750 C1480,720 1600,780 1600,780 L1600,900 L0,900 Z'/></svg>"),
-      /* 朱砂晕 + 墨晕 */
-      radial-gradient(at 18% 12%, color-mix(in oklab, var(--cinnabar) 10%, transparent) 0%, transparent 45%),
-      radial-gradient(at 82% 18%, color-mix(in oklab, var(--ink) 12%, transparent) 0%, transparent 50%),
-      /* 宣纸纹理 */
-      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='7'/><feColorMatrix values='0 0 0 0 0.18 0 0 0 0 0.13 0 0 0 0 0.08 0 0 0 0.07 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-    background-repeat: no-repeat, no-repeat, no-repeat, repeat;
-    background-size: 100% auto, auto, auto, 240px 240px;
-    background-position: bottom center, top left, top right, top left;
+      /* 红蓝双晕 — 朱砂与玄水 */
+      radial-gradient(ellipse 80% 60% at 25% 30%, color-mix(in oklab, var(--cinnabar) 22%, transparent) 0%, transparent 60%),
+      radial-gradient(ellipse 70% 55% at 80% 70%, oklch(0.45 0.12 240 / 0.20) 0%, transparent 60%),
+      /* 烟雾笼罩 */
+      radial-gradient(ellipse at 50% 100%, oklch(0.55 0.01 80 / 0.18) 0%, transparent 55%),
+      radial-gradient(ellipse at 50% 0%, oklch(0.05 0 0 / 0.55) 0%, transparent 50%),
+      /* 主底渐变 */
+      var(--gradient-ink),
+      /* 宣纸颗粒纹理 */
+      url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' seed='9'/><feColorMatrix values='0 0 0 0 0.95 0 0 0 0 0.92 0 0 0 0 0.85 0 0 0 0.06 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    background-repeat: no-repeat, no-repeat, no-repeat, no-repeat, no-repeat, repeat;
+    background-size: auto, auto, auto, auto, 100% 100%, 240px 240px;
+    background-position: top left, bottom right, bottom center, top center, center, top left;
     background-attachment: fixed, fixed, fixed, fixed;
   }
 
@@ -172,17 +176,17 @@
 
   .ink-card {
     position: relative;
-    background-color: color-mix(in oklab, var(--card) 88%, transparent);
-    border: 1px solid color-mix(in oklab, var(--ink) 28%, transparent);
-    box-shadow: var(--shadow-ink), inset 0 0 0 1px color-mix(in oklab, var(--rice-paper) 50%, transparent);
-    backdrop-filter: blur(2px);
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='1.1' numOctaves='1' seed='5'/><feColorMatrix values='0 0 0 0 0.2 0 0 0 0 0.15 0 0 0 0 0.1 0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>");
-    background-blend-mode: multiply;
+    background-color: color-mix(in oklab, var(--card) 75%, transparent);
+    border: 1px solid color-mix(in oklab, var(--rice-paper) 12%, transparent);
+    box-shadow: var(--shadow-ink), inset 0 1px 0 color-mix(in oklab, var(--rice-paper) 8%, transparent);
+    backdrop-filter: blur(6px);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' seed='5'/><feColorMatrix values='0 0 0 0 0.85 0 0 0 0 0.78 0 0 0 0 0.65 0 0 0 0.05 0'/></filter><rect width='100%25' height='100%25' filter='url(%23p)'/></svg>");
+    background-blend-mode: overlay;
   }
   .ink-card::before {
     content: "";
     position: absolute; inset: 6px;
-    border: 1px solid color-mix(in oklab, var(--ink) 12%, transparent);
+    border: 1px solid color-mix(in oklab, var(--rice-paper) 8%, transparent);
     border-radius: inherit;
     pointer-events: none;
   }
