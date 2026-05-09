@@ -31,9 +31,16 @@ export function totalAttr(p: { strength: number; speed: number; vitality: number
 }
 
 export function computeBattlePower(p: { strength: number; speed: number; vitality: number; evolution_stage: number }) {
-  return Math.round(
-    (p.strength * 3 + p.speed * 2 + p.vitality * 4) * (1 + p.evolution_stage * 0.5) + 100
-  );
+  // 战力数值 = 攻击力 + 生命值（仅展示，不决定排名）
+  return computeAttack(p) + computeHp(p);
+}
+
+export function computeAttack(p: { strength: number; evolution_stage: number }) {
+  return 10 + p.strength * 2 + p.evolution_stage * 12;
+}
+
+export function computeHp(p: { vitality: number; evolution_stage: number }) {
+  return 100 + p.vitality * 5 + p.evolution_stage * 80;
 }
 
 // 第 N 次进化（new_stage = 1,2,3,...）奖励的自由属性点：5, 50, 500, 5000, 50000
