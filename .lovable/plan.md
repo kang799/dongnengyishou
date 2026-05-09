@@ -1,27 +1,46 @@
-问题不是数据库没记录：我查到最近恢复的游客账号已经有 `onboarded_at`，但恢复登录后前端仍可能在会话切换/路由跳转的瞬间把状态重置成“未引导”，从而再次打开欢迎卷轴和聚光灯。需要把判定从“状态一空就弹”改成“当前用户的引导状态确认完毕后才允许弹”。
+## 问题定位
 
-实施计划：
+`OnboardingProvider` 中存在一个 effect：
+```
+useEffect(() => {
+  if (!user || confirmedUserId !== user.id) return;
+  if (onboardedAt) {
+    setWelcomeOpen(false);
+    setTourActive(false);   // ← 把刚启动的聚光灯关掉
+    setTourStep(0);
+  } else {
+    setWelcomeOpen(true);
+  }
+}, [confirmedUserId, user, onboardedAt]);
+```
 
-1. 修正游客缓存合并规则
-   - `saveGuestSession` 只有在缓存属于同一个 `user_id` 时，才继承旧的 `onboarded_at`。
-   - 避免新游客误继承上一个游客的完成状态，同时保证同一游客退出/恢复时保留完成记录。
+`closeWelcome` 的执行流程：
+1. `setWelcomeOpen(false)`
+2. `void markOnboarded()` → 立刻 `setOnboardedAt(now)`
+3. `setTourActive(true)` 启动聚光灯
 
-2. 加固游客恢复登录流程
-   - “继续游客”刷新 session 后，保存新 token 时显式保留当前游客缓存里的 `onboarded_at`。
-   - 如果恢复的是同一个已完成引导的游客，登录完成后的本地缓存立即是已完成状态。
+但第 2 步把 `onboardedAt` 由 `null` 变成时间戳，导致上面的 effect 重新跑，命中 `if (onboardedAt)` 分支，把 `tourActive` 又改回 `false`。结果聚光灯一闪而过（实际是没显示）。
 
-3. 重写 `OnboardingProvider` 的触发条件
-   - 为每个 `user.id` 单独记录“已确认的引导状态”，避免旧请求或旧账号状态影响新账号。
-   - 只有当前用户的数据库读取完成，并且数据库与游客缓存都确认没有 `onboarded_at` 时，才打开新手引导。
-   - 如果数据库读取失败，不再弹引导；避免网络/RLS 短暂失败导致老账号被当新账号。
-   - 如果游客缓存有完成记录但数据库为空，后台补写数据库，但 UI 立即视为已完成。
+新账号是这种情况：刚确认时 `onboardedAt` 为 null → 弹欢迎卷轴 → 用户点"入山修行"→ markOnboarded 把 onboardedAt 写为现在 → effect 二次触发 → 聚光灯被关闭。
 
-4. 避免已完成用户残留聚光灯
-   - 当确认当前账号已完成引导时，同时关闭欢迎卷轴、关闭聚光灯并重置步骤。
-   - 防止上一次未完成的 `tourActive` 状态在恢复登录后继续显示。
+## 修复方案
 
-5. 保持原业务规则
-   - 新游客：仍显示新手引导。
-   - 未完成引导的游客：恢复同一游客身份后仍显示引导。
-   - 已完成引导的游客：恢复同一游客身份后不再显示引导。
-   - 邮箱账号逻辑不受影响。
+把"账号确认时一次性同步 UI 状态"和"会话内状态变化"解耦：
+
+1. 改造该 effect：只依赖 `confirmedUserId`（不再监听 `onboardedAt`），在它从 null 切到某个 user.id 那一刻读取一次当时的 onboardedAt 决定弹欢迎或重置 tour。会话内 `markOnboarded` 引发的 `onboardedAt` 变化不再触发它，于是 `closeWelcome` 启动的聚光灯不会被覆盖。
+
+2. 用 `useRef`（或在切账号的 effect 里把 ref 清空）保存上一次已经"应用过初始 UI"的 user.id，避免同一账号重复执行。
+
+3. `closeWelcome` 内部顺序保持不变即可：先 `markOnboarded` 再 `setTourActive(true)`。
+
+4. 切账号那段 effect 仍然负责清场：`setWelcomeOpen(false)` / `setTourActive(false)` / `setTourStep(0)` / `setConfirmedUserId(null)` / 清空 ref。
+
+## 涉及文件
+
+- `src/components/onboarding/OnboardingProvider.tsx`：拆分两个 effect，引入 `appliedInitialForUserRef`，去掉对 `onboardedAt` 的初始化依赖。
+
+## 不改动的内容
+
+- 游客缓存 `onboarded_at` 继承规则保持现状。
+- WelcomeCarousel、SpotlightTour、tour-steps 不动。
+- 邮箱账号、已完成游客恢复登录的行为不变。
