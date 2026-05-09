@@ -1,35 +1,31 @@
 ## 目标
-封神榜三个榜单（属性榜 / 战力榜 / 打卡榜）顶部默认置顶显示当前用户自己一行，置顶行右侧多一个"定位"按钮，点击后页面平滑滚动到该用户在真实榜单中的位置并高亮闪烁一下。
 
-## 改动范围
-仅 `src/routes/leaderboards.tsx`。
+只用服务端 `profiles.onboarded_at` 判断是否需要新手引导：
+- 新建账号（邮箱注册 / 游客新建）→ `onboarded_at` 为空 → 弹出引导
+- 老账号（已完成引导）→ `onboarded_at` 有值 → 不再弹出
+- 同一账号在新设备登录 → 因为读的是服务端字段，自动不弹
 
-## 设计
+移除之前加入的 localStorage `yishou.onboarded` 兜底逻辑（它会让"已引导但换设备"的账号被误判，也会让"新账号但本机引导过别的账号"的被跳过）。
 
-### 1. 数据
-保持现有查询不变（`pets` + `profiles`）。在排序后：
-- 计算 `myIndex = rows.findIndex(r => r.user_id === user.id)`
-- 若 `myIndex >= 0`，把当前用户行单独提出来作为"置顶行"渲染在列表上方
-- 真实榜单依旧渲染完整的 `rows`（含我自己），所以排名号、定位都准确
+## 改动
 
-### 2. 置顶行 UI
-- 复用现有行的视觉，外加一层 `border-primary/40 bg-primary/5` 强调
-- 左侧排名号显示真实排名 `myIndex + 1`（不是 1）
-- 最右侧渲染一个"定位"按钮（圆形小按钮，`Crosshair` 图标 + 文字"定位"）
-- 不显示"切磋"按钮（自己不能切磋自己）
+### 1. `src/components/onboarding/OnboardingProvider.tsx`
+- 自动弹窗条件改回纯服务端判断：
+  ```ts
+  if (!onboardedAt) setWelcomeOpen(true);
+  ```
+  删除 `&& !hasOnboardedLocal()`。
+- `markOnboarded` 中删除 `markOnboardedLocal()` 调用。
+- `restart` 中删除 `clearOnboardedLocal()` 调用。
+- 删除 `markOnboardedLocal / hasOnboardedLocal / clearOnboardedLocal` 三个 import。
 
-### 3. 定位行为
-- 给真实榜单中"我自己"那一行加 `ref` 或 `id={`row-${user.id}`}`
-- 点定位按钮：`document.getElementById(...)?.scrollIntoView({ behavior: "smooth", block: "center" })`
-- 滚动到位后给该行加一个短暂的高亮动画（用 React state `flashId` 控制 className，800ms 后清除），CSS 用现有 `animate-pulse` 或新增 `ring-2 ring-primary` 配合 `transition`
-
-### 4. 边界
-- 未登录、或当前用户没在前 50 内：不渲染置顶行
-- 标签切换时 `myIndex` 重新计算
-- `rows` 上限保持 50，不变
+### 2. `src/lib/guest-session.ts`
+- 删除 `ONBOARDED_KEY` 常量与 `markOnboardedLocal / hasOnboardedLocal / clearOnboardedLocal` 三个函数（不再被任何地方引用）。
+- 其余游客会话相关函数保持不变。
 
 ## 验证
-- 三个榜单切换都能看到自己置顶
-- 点定位 → 平滑滚到真实位置 → 高亮一下
-- 未登录访问榜单 → 不出现置顶行
-- 自己排第 1 时也正常显示，定位按钮点击不报错
+
+- 新邮箱注册 → 弹引导；完成后重登 → 不弹。
+- 同账号换设备登录 → 不弹（服务端 `onboarded_at` 已写）。
+- 新建游客 → 弹引导；完成后刷新 → 不弹；恢复同一游客身份 → 不弹。
+- 同一浏览器先用 A 账号完成引导，再注册 B 新账号 → B 仍弹引导（不再被 localStorage 误判）。
