@@ -45,6 +45,12 @@ function Boards() {
     { id: "streak", label: "打卡榜" },
   ] as const;
 
+  const RULES: Record<typeof tab, string> = {
+    attr: "按异兽四维（力量 + 速度 + 体质 + 智力）总和由高到低排名，数值越高名次越前，勤加修炼即可登榜。",
+    power: "以挑战决定座次。战力值 ＝ 攻击力 ＋ 生命值，仅供参考；唯有在斗兽台击败排名高于自己的对手，方可取而代之，败者及其后玩家依次顺延。",
+    streak: "按连续打卡天数排名，天数越多名次越前，断签即清零，贵在坚持。",
+  };
+
   const myIndex = user ? rows.findIndex((r) => r.user_id === user.id) : -1;
   const myRow = myIndex >= 0 ? rows[myIndex] : null;
 
@@ -78,6 +84,9 @@ function Boards() {
           >{t.label}</button>
         ))}
       </div>
+      <p className="text-sm text-muted-foreground tracking-wide text-center max-w-2xl mx-auto mb-6 leading-relaxed">
+        {RULES[tab]}
+      </p>
       {myRow && (
         <div className="ink-card rounded-2xl mb-4 border border-primary/40 bg-primary/5">
           <div className="flex items-center gap-4 p-4">
