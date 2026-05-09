@@ -38,7 +38,6 @@ function AuthPage() {
   const [overwriteOpen, setOverwriteOpen] = useState(false);
   const [overwriteBusy, setOverwriteBusy] = useState(false);
   const [pendingAction, setPendingAction] = useState<"signup" | "signin" | "guest" | null>(null);
-  const pendingEvent = useRef<React.FormEvent | null>(null);
   const deleteGuestFn = useServerFn(deleteGuestAccount);
 
   useEffect(() => {
@@ -153,7 +152,6 @@ function AuthPage() {
     e.preventDefault();
     // 若仍有上次的游客缓存，先弹覆盖确认
     if (loadGuestSession()) {
-      pendingEvent.current = null;
       setPendingAction(mode === "signup" ? "signup" : "signin");
       setOverwriteOpen(true);
       return;
