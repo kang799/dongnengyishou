@@ -14,6 +14,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { saveGuestSession, loadGuestSession, clearGuestSession, clearSupabaseLocalAuth } from "@/lib/guest-session";
+import { deleteGuestAccount } from "@/lib/guest-cleanup.functions";
+import { useServerFn } from "@tanstack/react-start";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "招神入册 · 动能异兽" }] }),
@@ -33,6 +35,11 @@ function AuthPage() {
   const nav = useNavigate();
   const [guestPromptOpen, setGuestPromptOpen] = useState(false);
   const [guestRestoring, setGuestRestoring] = useState(false);
+  const [overwriteOpen, setOverwriteOpen] = useState(false);
+  const [overwriteBusy, setOverwriteBusy] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"signup" | "signin" | "guest" | null>(null);
+  const pendingEvent = useRef<React.FormEvent | null>(null);
+  const deleteGuestFn = useServerFn(deleteGuestAccount);
 
   useEffect(() => {
     if (loadGuestSession()) setGuestPromptOpen(true);
@@ -69,8 +76,10 @@ function AuthPage() {
   }
 
   function declineGuest() {
-    clearGuestSession();
+    // 「新建账号」不再直接清缓存，先弹覆盖确认
     setGuestPromptOpen(false);
+    setPendingAction("signup");
+    setOverwriteOpen(true);
   }
 
   function pickAvatar(file: File | null) {
@@ -103,6 +112,15 @@ function AuthPage() {
   }
 
   async function guestLogin() {
+    if (loadGuestSession()) {
+      setPendingAction("guest");
+      setOverwriteOpen(true);
+      return;
+    }
+    await doGuestLogin();
+  }
+
+  async function doGuestLogin() {
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.signInAnonymously({
@@ -133,6 +151,17 @@ function AuthPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    // 若仍有上次的游客缓存，先弹覆盖确认
+    if (loadGuestSession()) {
+      pendingEvent.current = null;
+      setPendingAction(mode === "signup" ? "signup" : "signin");
+      setOverwriteOpen(true);
+      return;
+    }
+    await doSubmit();
+  }
+
+  async function doSubmit() {
     setLoading(true);
     try {
       if (mode === "signup") {
@@ -170,9 +199,7 @@ function AuthPage() {
         toast.success(`异兽 ${finalPetName} 已与你结契`);
         nav({ to: "/pet" });
       } else {
-        // 切回邮箱账号前先清掉游客缓存与残留匿名 session，避免 OnboardingProvider
-        // 仍拿着上一个游客 user.id 去查 onboarded_at
-        clearGuestSession();
+        // 切回邮箱账号前先清掉残留匿名 session
         clearSupabaseLocalAuth();
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
@@ -195,6 +222,42 @@ function AuthPage() {
       toast.error(err.message || "出错了");
     } finally {
       setLoading(false);
+    }
+  }
+
+  function cancelOverwrite() {
+    setOverwriteOpen(false);
+    setPendingAction(null);
+  }
+
+  async function confirmOverwrite() {
+    const cache = loadGuestSession();
+    if (!cache) {
+      // 缓存不在了，直接继续
+      const action = pendingAction;
+      setOverwriteOpen(false);
+      setPendingAction(null);
+      if (action === "guest") await doGuestLogin();
+      else if (action === "signup" || action === "signin") await doSubmit();
+      return;
+    }
+    setOverwriteBusy(true);
+    try {
+      await deleteGuestFn({
+        data: { user_id: cache.user_id, refresh_token: cache.refresh_token },
+      });
+      clearGuestSession();
+      clearSupabaseLocalAuth();
+      toast.success("旧游客账号已消散");
+      const action = pendingAction;
+      setOverwriteOpen(false);
+      setPendingAction(null);
+      if (action === "guest") await doGuestLogin();
+      else if (action === "signup" || action === "signin") await doSubmit();
+    } catch (err: any) {
+      toast.error(err?.message || "删除旧游客失败");
+    } finally {
+      setOverwriteBusy(false);
     }
   }
 
@@ -310,6 +373,38 @@ function AuthPage() {
             className="font-display tracking-widest flex-1"
           >
             {guestRestoring ? "复归中…" : "继 续 游 客"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={overwriteOpen} onOpenChange={(o) => { if (!o && !overwriteBusy) cancelOverwrite(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="font-display tracking-widest text-center">
+            覆 盖 旧 游 客 账 号 ？
+          </DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground text-center leading-loose">
+          上次的游客异兽与修行数据将被永久消散，<br />
+          榜单与好友列表中也不再出现，无法找回。<br />
+          是否继续？
+        </p>
+        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-2">
+          <Button
+            variant="outline"
+            onClick={cancelOverwrite}
+            disabled={overwriteBusy}
+            className="font-display tracking-widest flex-1"
+          >
+            否
+          </Button>
+          <Button
+            onClick={confirmOverwrite}
+            disabled={overwriteBusy}
+            className="font-display tracking-widest flex-1"
+          >
+            {overwriteBusy ? "消散中…" : "是 · 覆 盖"}
           </Button>
         </DialogFooter>
       </DialogContent>
