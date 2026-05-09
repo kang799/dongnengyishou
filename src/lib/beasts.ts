@@ -35,3 +35,8 @@ export function computeBattlePower(p: { strength: number; speed: number; vitalit
     (p.strength * 3 + p.speed * 2 + p.vitality * 4) * (1 + p.evolution_stage * 0.5) + 100
   );
 }
+
+// 第 N 次进化（new_stage = 1,2,3,...）奖励的自由属性点：5, 50, 500, 5000, 50000
+export function evolutionPointsGranted(newStage: number): number {
+  return 5 * Math.pow(10, Math.max(0, newStage - 1));
+}
