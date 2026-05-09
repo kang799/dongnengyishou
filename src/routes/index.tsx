@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import heroBeast from "@/assets/hero-kinetic-beast.png";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -30,24 +31,30 @@ function Index() {
   return (
     <div className="relative">
       {/* Hero — 关键信息前置 */}
-      <section className="container mx-auto px-6 pt-10 pb-10">
-        <div className="ink-card ink-splash rounded-3xl p-8 md:p-12 relative overflow-hidden">
-          <div className="absolute top-6 right-6 seal text-sm">·甲辰·</div>
-          <div className="hidden md:block absolute right-10 top-10 bottom-10 vline font-display text-muted-foreground/50 text-sm">
-            山 海 为 卷 · 汗 水 为 墨
-          </div>
+      <section className="container mx-auto px-6 pt-8 pb-12">
+        <div className="relative rounded-3xl overflow-hidden border border-foreground/10 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.7)]">
+          {/* 背景图：水墨异兽 */}
+          <img
+            src={heroBeast}
+            alt="动能异兽 Kinetic Beast"
+            className="absolute inset-0 w-full h-full object-cover object-center"
+          />
+          {/* 暗角与底部渐隐 */}
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(0,0,0,0.55)_100%)]" />
+          <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-background via-background/80 to-transparent" />
 
-          <div className="max-w-2xl space-y-6">
-            <div className="text-xs font-display tracking-[0.5em] text-primary">江 湖 健 身 录</div>
-            <h1 className="font-display text-5xl md:text-6xl leading-[1.15] ink-brush inline-block">
-              以汗水<span className="text-primary">·</span>唤醒异兽
-            </h1>
-            <p className="text-base md:text-lg text-foreground/75 leading-loose max-w-xl">
-              开摄像头，深蹲炼速、俯卧撑炼力、仰卧起坐炼体。
-              三脉真气满，山海异兽便破壳进化，登顶封神榜。
-            </p>
-
-            <div className="flex flex-wrap gap-3 pt-2">
+          <div className="relative px-6 md:px-12 pt-[55vw] sm:pt-[42vw] md:pt-[28vw] lg:pt-[22vw] pb-10 md:pb-14">
+            <div className="absolute top-6 right-6 seal text-xs tracking-widest">·甲辰·</div>
+            <div className="max-w-2xl space-y-5">
+              <div className="text-[11px] font-display tracking-[0.6em] text-primary/90">江 湖 健 身 录</div>
+              <p className="text-base md:text-lg text-foreground/85 leading-loose font-display tracking-wider">
+                每一次心跳，都是它的心跳。
+              </p>
+              <p className="text-sm md:text-base text-foreground/65 leading-loose max-w-xl">
+                开摄像头，深蹲炼速 · 俯卧撑炼力 · 仰卧起坐炼体。<br/>
+                三脉真气满，山海异兽破壳进化，登顶封神榜。
+              </p>
+              <div className="flex flex-wrap gap-3 pt-2">
               <Button
                 size="lg"
                 onClick={handleStart}
@@ -61,12 +68,12 @@ function Index() {
                   观封神榜
                 </Button>
               </Link>
-            </div>
-
-            <div className="grid grid-cols-3 gap-4 pt-6 max-w-md">
-              <Stat label="异兽种数" value="60+" />
-              <Stat label="进化阶位" value="6" />
-              <Stat label="封神榜单" value="3" />
+              </div>
+              <div className="grid grid-cols-3 gap-4 pt-6 max-w-md">
+                <Stat label="异兽种数" value="60+" />
+                <Stat label="进化阶位" value="6" />
+                <Stat label="封神榜单" value="3" />
+              </div>
             </div>
           </div>
         </div>
