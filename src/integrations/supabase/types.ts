@@ -65,6 +65,75 @@ export type Database = {
         }
         Relationships: []
       }
+      friend_requests: {
+        Row: {
+          created_at: string
+          from_user: string
+          id: string
+          status: string
+          to_user: string
+        }
+        Insert: {
+          created_at?: string
+          from_user: string
+          id?: string
+          status?: string
+          to_user: string
+        }
+        Update: {
+          created_at?: string
+          from_user?: string
+          id?: string
+          status?: string
+          to_user?: string
+        }
+        Relationships: []
+      }
+      friendships: {
+        Row: {
+          created_at: string
+          user_a: string
+          user_b: string
+        }
+        Insert: {
+          created_at?: string
+          user_a: string
+          user_b: string
+        }
+        Update: {
+          created_at?: string
+          user_a?: string
+          user_b?: string
+        }
+        Relationships: []
+      }
+      messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          read_at: string | null
+          receiver_id: string
+          sender_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          receiver_id: string
+          sender_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          receiver_id?: string
+          sender_id?: string
+        }
+        Relationships: []
+      }
       pets: {
         Row: {
           battle_power: number
@@ -151,13 +220,18 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_friend_request: { Args: { p_from: string }; Returns: undefined }
       apply_exercise: {
         Args: { p_exercise: string; p_reps: number }
         Returns: undefined
       }
       cleanup_inactive_guests: { Args: never; Returns: number }
+      decline_friend_request: { Args: { p_from: string }; Returns: undefined }
+      is_friend: { Args: { a: string; b: string }; Returns: boolean }
       random_ancient_name: { Args: never; Returns: string }
+      remove_friend: { Args: { p_other: string }; Returns: undefined }
       run_battle: { Args: { p_defender: string }; Returns: Json }
+      send_friend_request: { Args: { p_to: string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
