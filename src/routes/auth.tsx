@@ -280,5 +280,37 @@ function AuthPage() {
         </div>
       </div>
     </div>
+
+    <Dialog open={guestPromptOpen} onOpenChange={(o) => { if (!o) declineGuest(); }}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="font-display tracking-widest text-center">
+            检 测 到 上 次 游 客 身 份
+          </DialogTitle>
+        </DialogHeader>
+        <p className="text-sm text-muted-foreground text-center leading-loose">
+          上次你以游客身份入山，异兽与修行数据仍在。<br />
+          要继续上次的游客身份，还是新建一个账号？
+        </p>
+        <DialogFooter className="flex-col sm:flex-row gap-2 sm:gap-2">
+          <Button
+            variant="outline"
+            onClick={declineGuest}
+            disabled={guestRestoring}
+            className="font-display tracking-widest flex-1"
+          >
+            新 建 账 号
+          </Button>
+          <Button
+            onClick={continueAsGuest}
+            disabled={guestRestoring}
+            className="font-display tracking-widest flex-1"
+          >
+            {guestRestoring ? "复归中…" : "继 续 游 客"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }
