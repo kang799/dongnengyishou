@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { BattleEvent } from "@/lib/battle";
 import { STAGE_TITLES } from "@/lib/beasts";
 import { toast } from "sonner";
+import { useOnboarding } from "@/components/onboarding/OnboardingProvider";
 
 export const Route = createFileRoute("/arena")({
   head: () => ({ meta: [{ title: "斗兽台 · 动能异兽" }] }),
@@ -21,6 +22,7 @@ type Pet = {
 function Arena() {
   const { user, loading } = useAuth();
   const nav = useNavigate();
+  const { onboarded, loading: onbLoading } = useOnboarding();
   const [me, setMe] = useState<Pet | null>(null);
   const [opponents, setOpponents] = useState<Pet[]>([]);
   const [battleEvents, setBattleEvents] = useState<BattleEvent[]>([]);
@@ -31,6 +33,13 @@ function Arena() {
   useEffect(() => {
     if (!loading && !user) nav({ to: "/auth" });
   }, [loading, user, nav]);
+
+  useEffect(() => {
+    if (!onbLoading && user && !onboarded) {
+      toast.message("请先完成新手修行");
+      nav({ to: "/pet" });
+    }
+  }, [onbLoading, user, onboarded, nav]);
 
   async function load() {
     if (!user) return;
