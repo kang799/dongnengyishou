@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { canEvolve, computeBattlePower, evolutionThreshold, STAGE_TITLES, totalAttr } from "@/lib/beasts";
 import { toast } from "sonner";
 
