@@ -82,8 +82,7 @@ export function WelcomeCarousel() {
   return (
     <Dialog open={welcomeOpen} onOpenChange={(o) => !o && closeWelcome()}>
       <DialogContent
-        className="max-w-3xl p-0 overflow-hidden border-foreground/15 bg-background"
-        showCloseButton={false}
+        className="max-w-3xl p-0 overflow-hidden border-foreground/15 bg-background [&>button]:hidden"
       >
         <div className="relative">
           {/* 跳过 */}
