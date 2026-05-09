@@ -14,6 +14,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import { clearSupabaseLocalAuth, saveGuestSession } from "@/lib/guest-session";
 const NAV = [
   { to: "/pet", label: "我的异兽" },
   { to: "/train", label: "修行" },
@@ -34,17 +35,19 @@ export function SiteHeader() {
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const userId = user?.id;
+  const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
-    if (!userId) { setAvatarUrl(null); setDisplayName(null); return; }
+    if (!userId) { setAvatarUrl(null); setDisplayName(null); setIsGuest(false); return; }
     void supabase
       .from("profiles")
-      .select("avatar_url, display_name")
+      .select("avatar_url, display_name, is_guest")
       .eq("id", userId)
       .maybeSingle()
       .then(({ data }) => {
         setAvatarUrl(data?.avatar_url ?? null);
         setDisplayName(data?.display_name ?? null);
+        setIsGuest(!!(data as any)?.is_guest);
       });
   }, [userId]);
 
@@ -154,9 +157,37 @@ export function SiteHeader() {
                 variant="ghost"
                 size="sm"
                 onClick={async () => {
-                  // 仅清除本地会话，保留后端 refresh token，
-                  // 让游客可以通过本地缓存恢复身份
-                  await supabase.auth.signOut({ scope: "local" });
+                  if (isGuest) {
+                    // 游客：在退出前刷新一次 refresh_token 并保存到游客缓存，
+                    // 然后只清掉浏览器中的 supabase 会话键，保留后端 session 与游客缓存，
+                    // 这样下次进入登录页可凭 refresh_token 恢复身份。
+                    try {
+                      const { data } = await supabase.auth.refreshSession();
+                      const sess = data.session;
+                      if (sess) {
+                        saveGuestSession({
+                          access_token: sess.access_token,
+                          refresh_token: sess.refresh_token,
+                          user_id: sess.user.id,
+                        });
+                      } else {
+                        // 兜底：使用现有 session
+                        const cur = (await supabase.auth.getSession()).data.session;
+                        if (cur) {
+                          saveGuestSession({
+                            access_token: cur.access_token,
+                            refresh_token: cur.refresh_token,
+                            user_id: cur.user.id,
+                          });
+                        }
+                      }
+                    } catch (e) {
+                      console.warn("refresh before guest signout failed", e);
+                    }
+                    clearSupabaseLocalAuth();
+                  } else {
+                    await supabase.auth.signOut();
+                  }
                   window.location.href = "/";
                 }}
               >

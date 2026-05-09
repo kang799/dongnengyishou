@@ -33,3 +33,20 @@ export function loadGuestSession(): GuestSessionCache | null {
 export function clearGuestSession() {
   try { localStorage.removeItem(KEY); } catch {}
 }
+
+/**
+ * 清除当前 supabase 在 localStorage 中的会话缓存（sb-* 键），
+ * 但保留我们自己的游客缓存键，使游客可以稍后通过 refresh_token 恢复。
+ */
+export function clearSupabaseLocalAuth() {
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (!k) continue;
+      if (k === KEY) continue;
+      if (k.startsWith("sb-") && k.includes("-auth-token")) keysToRemove.push(k);
+    }
+    keysToRemove.forEach((k) => localStorage.removeItem(k));
+  } catch {}
+}
