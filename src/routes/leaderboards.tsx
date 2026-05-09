@@ -3,8 +3,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { STAGE_TITLES, totalAttr } from "@/lib/beasts";
 import { useAuth } from "@/hooks/use-auth";
-import { useOnboarding } from "@/components/onboarding/OnboardingProvider";
-import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/leaderboards")({
   head: () => ({ meta: [{ title: "封神榜 · 动能异兽" }] }),
@@ -15,17 +14,9 @@ type Row = { user_id: string; name: string; species: string; strength: number; s
 
 function Boards() {
   const { user } = useAuth();
-  const { onboarded, loading: onbLoading } = useOnboarding();
   const nav = useNavigate();
   const [tab, setTab] = useState<"attr" | "power" | "streak">("attr");
   const [rows, setRows] = useState<Row[]>([]);
-
-  useEffect(() => {
-    if (!onbLoading && user && !onboarded) {
-      toast.message("请先完成新手修行");
-      nav({ to: "/pet" });
-    }
-  }, [onbLoading, user, onboarded, nav]);
 
   useEffect(() => {
     (async () => {
@@ -80,6 +71,15 @@ function Boards() {
               {tab === "power" && r.battle_power}
               {tab === "streak" && `${r.streak_days ?? 0} 日`}
             </div>
+            {user && r.user_id !== user.id && (
+              <Button
+                size="sm"
+                onClick={() => nav({ to: "/arena", search: { vs: r.user_id } })}
+                className="font-display tracking-widest"
+              >
+                切磋
+              </Button>
+            )}
           </div>
         ))}
         {rows.length === 0 && <div className="p-12 text-center text-muted-foreground">榜单虚位以待</div>}

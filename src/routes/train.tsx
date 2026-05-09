@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePoseCounter, type ExerciseType } from "@/hooks/use-pose-counter";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useOnboarding } from "@/components/onboarding/OnboardingProvider";
 
 export const Route = createFileRoute("/train")({
   head: () => ({ meta: [{ title: "修行 · 动能异兽" }] }),
@@ -21,7 +20,6 @@ const EXERCISES: { id: ExerciseType; kanji: string; title: string; stat: string;
 function TrainPage() {
   const { user, loading } = useAuth();
   const nav = useNavigate();
-  const { onboarded, markOnboarded } = useOnboarding();
   const [active, setActive] = useState(false);
   const [exercise, setExercise] = useState<ExerciseType>("squat");
   const {
@@ -70,11 +68,6 @@ function TrainPage() {
       console.error("apply_exercise failed", error);
       toast.error("同步失败，请稍后重试");
       return;
-    }
-    // 首训完成 → 解锁全部殿堂
-    if (!onboarded && ex === "squat") {
-      await markOnboarded();
-      toast.success("入门已成 · 全部殿堂已解锁", { duration: 4000 });
     }
   }
 

@@ -5,8 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { STAGE_TITLES, totalAttr } from "@/lib/beasts";
-import { toast } from "sonner";
-import { useOnboarding } from "@/components/onboarding/OnboardingProvider";
 
 export const Route = createFileRoute("/friends")({
   head: () => ({ meta: [{ title: "道友 · 动能异兽" }] }),
@@ -29,20 +27,12 @@ type Row = {
 function FriendsPage() {
   const { user, loading } = useAuth();
   const nav = useNavigate();
-  const { onboarded, loading: onbLoading } = useOnboarding();
   const [q, setQ] = useState("");
   const [rows, setRows] = useState<Row[]>([]);
 
   useEffect(() => {
     if (!loading && !user) nav({ to: "/auth" });
   }, [loading, user, nav]);
-
-  useEffect(() => {
-    if (!onbLoading && user && !onboarded) {
-      toast.message("请先完成新手修行");
-      nav({ to: "/pet" });
-    }
-  }, [onbLoading, user, onboarded, nav]);
 
   async function load() {
     if (!user) return;

@@ -14,20 +14,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { useOnboarding } from "@/components/onboarding/OnboardingProvider";
-
 const NAV = [
-  { to: "/pet", label: "我的异兽", needsOnboard: false },
-  { to: "/train", label: "修行", needsOnboard: false },
-  { to: "/arena", label: "斗兽台", needsOnboard: true },
-  { to: "/friends", label: "道友", needsOnboard: true },
-  { to: "/leaderboards", label: "封神榜", needsOnboard: true },
+  { to: "/pet", label: "我的异兽" },
+  { to: "/train", label: "修行" },
+  { to: "/friends", label: "道友" },
+  { to: "/leaderboards", label: "封神榜" },
 ] as const;
 
 export function SiteHeader() {
   const { user, loading } = useAuth();
   const loc = useLocation();
-  const { onboarded, restart } = useOnboarding();
   const onAuthPage = loc.pathname === "/" || loc.pathname === "/auth";
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
@@ -118,31 +114,16 @@ export function SiteHeader() {
         </Link>
         {user && (
           <nav className="hidden md:flex items-center gap-1">
-            {NAV.map((n) => {
-              const locked = n.needsOnboard && !onboarded;
-              if (locked) {
-                return (
-                  <span
-                    key={n.to}
-                    title="需先完成新手修行"
-                    className="px-4 py-2 font-display tracking-widest text-foreground/30 cursor-not-allowed select-none"
-                  >
-                    {n.label}
-                    <span className="ml-1 text-[10px] align-top">🔒</span>
-                  </span>
-                );
-              }
-              return (
-                <Link
-                  key={n.to}
-                  to={n.to}
-                  className="px-4 py-2 font-display tracking-widest text-foreground/70 hover:text-primary transition-colors"
-                  activeProps={{ className: "px-4 py-2 font-display tracking-widest text-primary" }}
-                >
-                  {n.label}
-                </Link>
-              );
-            })}
+            {NAV.map((n) => (
+              <Link
+                key={n.to}
+                to={n.to}
+                className="px-4 py-2 font-display tracking-widest text-foreground/70 hover:text-primary transition-colors"
+                activeProps={{ className: "px-4 py-2 font-display tracking-widest text-primary" }}
+              >
+                {n.label}
+              </Link>
+            ))}
           </nav>
         )}
         <div className="flex items-center gap-2">
@@ -179,17 +160,6 @@ export function SiteHeader() {
               >
                 归隐
               </Button>
-              {onboarded && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="hidden md:inline-flex text-xs text-muted-foreground"
-                  onClick={() => void restart()}
-                  title="重看新手指引"
-                >
-                  指引
-                </Button>
-              )}
             </>
           )}
           {!loading && !user && !onAuthPage && (
