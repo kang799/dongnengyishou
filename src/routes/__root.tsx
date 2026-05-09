@@ -14,8 +14,6 @@ import { Toaster } from "sonner";
 import { SiteHeader } from "@/components/site-header";
 import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
 import { WelcomeCarousel } from "@/components/onboarding/WelcomeCarousel";
-import { SpotlightTour } from "@/components/onboarding/SpotlightTour";
-import { OnboardingTaskBar } from "@/components/onboarding/OnboardingTaskBar";
 
 function NotFoundComponent() {
   return (
@@ -128,7 +126,6 @@ function RootComponent() {
       <OnboardingProvider>
         <div className="min-h-screen flex flex-col">
           <SiteHeader />
-          <OnboardingTaskBar />
           <main className="flex-1">
             <div key={pathname} className="ink-bleed-in">
               <Outlet />
@@ -139,7 +136,6 @@ function RootComponent() {
           </footer>
         </div>
         <WelcomeCarousel />
-        <SpotlightTour />
         <Toaster position="top-center" richColors />
       </OnboardingProvider>
     </QueryClientProvider>
