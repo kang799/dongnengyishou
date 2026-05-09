@@ -1,42 +1,56 @@
-## 改动目标
+## 目标
 
-1. **头像替换**：道友录、封神榜、聊天页里展示的圆形头像，从「水墨异兽 logo」改为用户在注册/资料里上传的头像（`profiles.avatar_url`）。未上传则回退到现在的异兽 logo，再回退到「兽」字。
-2. **称呼顺序调整**：当前显示 `{异兽名} 道友 · {道号}`，改为 `{道号} · {异兽名}`，让用户的道号在前。
+1. **战斗不再影响战力**：胜负只更新 `wins/losses`，不再 `+5` 战力。
+2. **战力只来自三种锻炼 + 进化**：蹲起→速度、俯卧撑→力量、仰卧起坐→体质，已正确（保持）；进化新增「自由属性点」奖励。
+3. **进化奖励自由点**：第 1 次进化 +5、第 2 次 +50、第 3 次 +500 …（公式 `5 × 10^(stage−1)`，stage 为进化后阶位）。
+4. **批量加点**：用户在异兽页可一次性把自由点分配到 力量 / 速度 / 体质 任意组合，提交后才入库并重算战力。
 
-## 改动范围
+## 数据库改动（migration）
 
-### 1. `src/components/beast-avatar.tsx`（核心组件改造）
-新增可选 `avatarUrl?: string | null` 与 `name?: string`（用于 alt），渲染优先级：
-- `avatarUrl` 存在 → 显示用户头像（圆形 cover）
-- 否则 → 显示对应 species 的水墨异兽 logo
-- 都没有 → 显示「兽」字
+### pets 表
+- 新增字段 `free_points int not null default 0`。
 
-保持现有 `size` 接口，已有调用全部兼容。
+### 函数
+- **`evolve_pet()`**（新建，SECURITY DEFINER）
+  - 校验登录 + canEvolve（三属性 ≥ 10^(当前阶+1)）
+  - `evolution_stage += 1`
+  - `free_points += 5 * 10^(new_stage - 1)`（new_stage=1→5、2→50、3→500…）
+  - 重算 battle_power = `(str*3 + spd*2 + vit*4) * (1 + new_stage*0.5) + 100`
+  - 返回 `{ stage, free_points_granted }`
 
-### 2. 数据加载补 `avatar_url`
-- **`src/routes/friends.tsx`**：`loadProfilesAndPets` 的 profiles select 加入 `avatar_url`，Row 类型加 `avatar_url: string | null`，所有 `<BeastAvatar>` 调用传入 `avatarUrl={r.avatar_url}`。
-- **`src/routes/leaderboards.tsx`**：profiles 查询加 `avatar_url`，Row 类型补字段，自身的内部 `BeastAvatar` 包装组件接收并透传 `avatarUrl`。
-- **`src/routes/chat.$userId.tsx`**：对方资料查询补 `avatar_url`，传给头像组件。
+- **`allocate_points(p_str int, p_spd int, p_vit int)`**（新建，SECURITY DEFINER）
+  - 校验三个数都 ≥ 0、合计 > 0、合计 ≤ pet.free_points
+  - 一次性 `strength += p_str` 等
+  - `free_points -= 合计`
+  - 重算 battle_power
+  - 返回更新后的 pet
 
-### 3. 称呼显示顺序统一调整
+- **`run_battle()`**（修改）
+  - 删掉 `new_bp := greatest(me.battle_power, opp.battle_power) + 5;` 与对应的 `battle_power = new_bp`。
+  - 仅更新 `wins / losses`、写战斗日志。
 
-当前格式 → 新格式：
+## 前端改动
 
-| 位置 | 旧 | 新 |
-|---|---|---|
-| 榜单行 | `{name}　道友 · {display_name}` | `{display_name} · {name}` |
-| 我的高亮行 | `{name}　道友 · {display_name}（我）` | `{display_name}（我）· {name}` |
-| 道友列表 | `{name}　道友 · {display_name}` | `{display_name} · {name}` |
-| 申请列表（收到/发出）| 同上 | 同上 |
-| 寻访结果 | 同上 | 同上 |
-| 聊天页头部 | 同上 | 同上 |
+### `src/lib/beasts.ts`
+- 新增 `evolutionPointsGranted(newStage: number)` = `5 * 10^(newStage - 1)`。
 
-主标题样式（font-display + 主色）给 `display_name`，副标题样式（小字 muted）给异兽名 `{name}`，因为「用户身份」是道号，异兽是其宠物。
+### `src/routes/pet.tsx`
+- Pet 类型补 `free_points`。
+- `evolve()` 改为调用 `supabase.rpc("evolve_pet")`，提示 `已得 N 点自由属性`。
+- 新增「自由属性点」面板（仅当 `free_points > 0` 时显示）：
+  - 顶部展示：`剩余自由点 N`
+  - 三行：力量 / 速度 / 体质，每行 `−` 数字输入 `+`，下方有「全部加力量 / 速度 / 体质」快捷按钮
+  - 总计实时显示「将分配 X 点 / 剩余 Y 点」
+  - 「重置」「确认分配」两个按钮
+  - 提交时调用 `supabase.rpc("allocate_points", { p_str, p_spd, p_vit })`，成功后 `load()`
 
-## 不改动的位置
-- 异兽页（`pet.tsx`）中央大「兽」字保持不变（那是用户自己的异兽展示，不是社交身份）。
-- 数据库与 RLS 不动；`avatar_url` 字段已存在并已可读。
-- 不新增上传入口（顶栏 `site-header.tsx` 已有头像上传弹窗）。
+### 文案
+- 战斗结算/竞技场页面（`arena.tsx`）若有「战力 +5」之类提示一并去掉（确认无即可）。
+
+## 不动的部分
+- `apply_exercise` 已经正确：锻炼 → 属性 → 战力，保留不变。
+- 排行榜、道友、聊天等读取逻辑不变（仍读 `battle_power` / 三属性）。
+- 进化阈值（需各属性达 10^(stage+1)）保持不变；自由点是「奖励」，可以叠加在已有属性上继续推进下一阶。
 
 ## 摘要
-让社交相关页面统一以「用户上传头像 + 道号在前、异兽名在后」呈现身份，异兽 logo 仅作为未设置头像时的回退。
+战斗只算胜负，不再加战力；战力只能靠每日锻炼累积属性 + 进化奖励的自由点（5 / 50 / 500 …）批量加成而提升。
