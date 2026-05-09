@@ -1,52 +1,65 @@
-## 根因
+## 问题结论
 
-控制台连续报错：
+这次查到的是两个相关但不完全相同的问题：
 
-```
-load pet/profile failed
-code: 42501
-message: permission denied for table profiles
-```
+1. **游客再次登录旧账号仍要过新手引导**
+   - 现有 `OnboardingProvider` 在 `profiles.onboarded_at` 读取失败或读不到时，会把账号当成“未引导”。
+   - 同时游客 session 缓存会在登录页弹出“继续游客/新建账号”，如果从游客身份切到旧邮箱账号时没有彻底清理游客会话，容易继续拿游客的 `user.id` 去查 `onboarded_at`，表现就是“明明登录旧账号却又走新手引导”。
 
-`/pet` 页里 `load()` 抛错后，组件直接渲染错误分支：
+2. **榜单玩家昵称都变成“无名氏”**
+   - 榜单现在用浏览器端直接查 `profiles.select('*')` 再和 `pets` 合并。
+   - 数据库当前 `profiles` 只允许读取自己的 profile 行，所以榜单能读到所有 `pets`，但读不到其他人的 `profiles`，合并时就全部 fallback 成“无名氏”。
+   - 这不是昵称丢了；数据库里昵称还在，例如最近的玩家有“东篱、枕梦、纳兰”等。
 
-```tsx
-if (fetchErr || !pet || !profile) {
-  return <div>召唤受阻：{fetchErr}</div>;
-}
-```
+## 修复计划
 
-于是 `data-tour="pet-portrait" / "pet-stats" / "pet-go-train"` 三个挂点根本没挂到 DOM —— SpotlightTour 用 `document.querySelector(step.selector)` 找不到，重试 4 次后就显示「未找到目标元素，可点下一步继续」，自然也没有高亮框。
+### 1. 新增安全的公开资料读取方式
 
-第 4 步 `train-squat-card` 也"找不到"是次生问题：第 3 步是 `waitForClick` 绑在不存在的 `pet-go-train` 上，用户只能点"下一步"强行推进，此时还在 `/pet` 路由，组件来不及切到 `/train` 就开始查 `train-squat-card`，重试窗口（4×100ms）跑完就报 missing。
+创建一个只暴露榜单需要字段的公开资料视图，例如：
 
-也就是说 **问题不在引导组件，而在 profiles 表的 RLS**：当前已登录用户对 `public.profiles` 没有 SELECT 权限。
+- `id`
+- `display_name`
+- `avatar_url`
+- `streak_days`
 
-## 修复
+并用安全规则允许榜单/道友录读取这个视图，而不是直接开放完整 `profiles` 表。
 
-### 1. 修复 profiles 表 RLS（数据库迁移）
+这样能修复：
 
-新增迁移，确保已登录用户至少能读自己的行（其它策略保持不动）：
+- 榜单昵称不再显示“无名氏”
+- 道友录也能正常显示玩家道号
+- 不把完整用户资料表直接暴露出去
 
-- 启用 `public.profiles` 上的 RLS（如未启用）。
-- 新建策略：`profiles_select_self`，`for select to authenticated using (id = auth.uid())`。
-- 视情况补 `profiles_insert_self`、`profiles_update_self`，避免 `pet.tsx` 的 insert/update 也撞同样的 42501。
+### 2. 调整榜单和道友录代码
 
-确认现有策略后只补缺失的，避免重复创建。
+把这些页面从读取 `profiles` 改为读取公开资料视图：
 
-### 2. 增强 SpotlightTour 的兜底（防御性，可选）
+- `src/routes/leaderboards.tsx`
+- `src/routes/friends.tsx`
 
-即使数据库修好了，将来某个目标元素短暂不渲染时，也不应该让用户陷入"无聚光灯+无法继续"的状态：
+同时只选择实际需要的字段，避免 `select('*')`。
 
-- 路由切换后将查找重试窗口从 4×100ms 提升到 ~10×200ms（覆盖懒加载/重定向）。
-- `waitForClick` 步骤如果元素一直缺失，自动退化为显示"下一步"按钮（已经有 `missing && 下一步` 的 UI 分支，目前是 OR 逻辑没问题，无需改动）。
+### 3. 修复游客切换到旧账号时的会话残留
 
-### 3. 验证
+在邮箱登录和注册流程开始前：
 
-- 当前已登录账号刷新 `/pet`：不再出现 "permission denied"，正常渲染异兽卡片。
-- 走一遍引导：5 步全部命中 `data-tour` 元素，聚光灯虚线框正常显示。
-- 退出账号、用游客身份再走一遍，确认 RLS 对 anon 的策略未被破坏。
+- 清理游客缓存
+- 清理残留的本地匿名 session
+- 再执行邮箱登录/注册
 
-## 备注
+登录成功后重新拉取真实邮箱账号的 session/profile，确保 `OnboardingProvider` 查的是旧账号自己的 `onboarded_at`。
 
-SpotlightTour 本身的逻辑没问题，根因 100% 是 `/pet` 因 RLS 报错走了错误分支导致挂点缺失。先修数据库再看引导，第 2 步只是顺手加固。
+### 4. 加固新手引导判定
+
+修改 `OnboardingProvider`：
+
+- 用户切换时先重置 `fetched`，避免沿用上一个游客账号的读取状态
+- 读取 `onboarded_at` 失败时不立即弹新手引导，先保持加载/静默，避免权限或会话短暂错误把旧账号误判成新账号
+- `markOnboarded` 更新失败时给出警告，不让前端假装已完成但服务器没写入
+
+## 验证方式
+
+- 游客归隐后，用旧邮箱账号登录：如果旧账号 `onboarded_at` 已存在，不再弹新手引导。
+- 新注册账号：仍然正常弹新手引导。
+- 榜单：玩家昵称显示真实道号，不再批量显示“无名氏”。
+- 道友录：能看到其他玩家真实道号。
