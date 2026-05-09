@@ -167,7 +167,7 @@ function TrainPage() {
               {degraded && <span className="text-muted-foreground">· 已降速</span>}
             </div>
           )}
-          {active && ready && exercise === "squat" && (
+          {active && ready && (
             <div className="absolute bottom-0 left-0 right-0 p-3 bg-background/90 space-y-2">
               <div className="text-center text-sm font-display tracking-widest">
                 {status.message}
@@ -201,7 +201,11 @@ function TrainPage() {
           )}
         </div>
         <p className="text-center text-xs text-muted-foreground mt-3 tracking-widest">
-          深蹲：先按提示完成站立与下蹲两步校准，之后每蹲一次 +1。上半身入镜即可
+          {exercise === "squat"
+            ? "深蹲：先按提示完成站立与下蹲两步校准，之后每蹲一次 +1。上半身入镜即可"
+            : exercise === "pushup"
+            ? "俯卧撑：上半身入镜，肩肘腕清晰可见。屈臂到底再撑起 +1"
+            : "仰卧起坐：侧躺或正面入镜均可，膝盖保持弯起。卷腹到位再躺回 +1"}
         </p>
       </div>
     </div>

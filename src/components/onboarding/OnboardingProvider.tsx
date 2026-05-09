@@ -19,6 +19,11 @@ type OnboardingCtx = {
   openWelcome: () => void;
   markOnboarded: () => Promise<void>;
   restart: () => Promise<void>;
+  tourActive: boolean;
+  tourStep: number;
+  startTour: () => void;
+  nextTourStep: () => void;
+  endTour: () => void;
 };
 
 const Ctx = createContext<OnboardingCtx | null>(null);
@@ -28,6 +33,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const [onboardedAt, setOnboardedAt] = useState<string | null>(null);
   const [fetched, setFetched] = useState(false);
   const [welcomeOpen, setWelcomeOpen] = useState(false);
+  const [tourActive, setTourActive] = useState(false);
+  const [tourStep, setTourStep] = useState(0);
 
   // 拉取 onboarded_at
   useEffect(() => {
@@ -70,19 +77,48 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     setOnboardedAt(null);
     setWelcomeOpen(true);
+    setTourActive(false);
+    setTourStep(0);
     await supabase.from("profiles").update({ onboarded_at: null }).eq("id", user.id);
   }, [user]);
+
+  const startTour = useCallback(() => {
+    setTourStep(0);
+    setTourActive(true);
+  }, []);
+  const nextTourStep = useCallback(() => {
+    setTourStep((i) => {
+      const next = i + 1;
+      // 上层组件保证最后一步用 endTour；这里做兜底
+      return next;
+    });
+  }, []);
+  const endTour = useCallback(() => {
+    setTourActive(false);
+    setTourStep(0);
+  }, []);
 
   const value = useMemo<OnboardingCtx>(() => ({
     loading: loading || !fetched,
     onboarded: !!onboardedAt,
     hasUser: !!user,
     welcomeOpen,
-    closeWelcome: () => { setWelcomeOpen(false); void markOnboarded(); },
+    closeWelcome: () => {
+      setWelcomeOpen(false);
+      void markOnboarded();
+      // 关闭欢迎卷轴 → 启动聚光灯引导
+      setTourStep(0);
+      setTourActive(true);
+    },
     openWelcome: () => setWelcomeOpen(true),
     markOnboarded,
     restart,
-  }), [loading, fetched, onboardedAt, user, welcomeOpen, markOnboarded, restart]);
+    tourActive,
+    tourStep,
+    startTour,
+    nextTourStep,
+    endTour,
+  }), [loading, fetched, onboardedAt, user, welcomeOpen, markOnboarded, restart, tourActive, tourStep, startTour, nextTourStep, endTour]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
