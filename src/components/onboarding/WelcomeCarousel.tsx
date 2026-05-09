@@ -4,6 +4,9 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useOnboarding } from "./OnboardingProvider";
 import heroBeast from "@/assets/hero-kinetic-beast.png";
+import iconSpeed from "@/assets/icon-speed.png";
+import iconStrength from "@/assets/icon-strength.png";
+import iconVitality from "@/assets/icon-vitality.png";
 
 const SLIDES = [
   {
@@ -19,12 +22,12 @@ const SLIDES = [
     art: (
       <div className="grid grid-cols-3 gap-4 p-10 h-full place-items-center">
         {[
-          { k: "速", t: "深蹲" },
-          { k: "力", t: "俯卧撑" },
-          { k: "体", t: "仰卧起坐" },
+          { k: iconSpeed, t: "深蹲" },
+          { k: iconStrength, t: "俯卧撑" },
+          { k: iconVitality, t: "仰卧起坐" },
         ].map((x) => (
-          <div key={x.k} className="text-center">
-            <div className="font-display text-7xl text-primary leading-none">{x.k}</div>
+          <div key={x.t} className="text-center">
+            <img src={x.k} alt={x.t} className="w-24 h-24 md:w-28 md:h-28 object-contain mx-auto" />
             <div className="font-display text-sm tracking-widest text-foreground/70 mt-3">{x.t}</div>
           </div>
         ))}
