@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -30,6 +30,15 @@ function Arena() {
   const [battling, setBattling] = useState(false);
   const [result, setResult] = useState<"win" | "lose" | null>(null);
   const [opponent, setOpponent] = useState<Pet | null>(null);
+  const logRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = logRef.current;
+    if (!el) return;
+    requestAnimationFrame(() => {
+      el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    });
+  }, [battleEvents.length, result]);
 
   useEffect(() => {
     if (!loading && !user) nav({ to: "/auth" });
@@ -112,7 +121,7 @@ function Arena() {
             <div className="text-center font-display text-3xl tracking-[0.5em] text-primary">VS</div>
             <PetHead p={opponent} side="right" />
           </div>
-          <div className="bg-secondary/10 rounded-xl p-4 max-h-64 overflow-y-auto space-y-1 font-display tracking-wider">
+          <div ref={logRef} className="bg-secondary/10 rounded-xl p-4 max-h-64 overflow-y-auto space-y-1 font-display tracking-wider">
             {battleEvents.map((e, i) => (
               <div key={i} className="text-sm">
                 <span className="text-muted-foreground mr-2">[第{e.turn}回合]</span>

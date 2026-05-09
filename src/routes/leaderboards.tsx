@@ -113,28 +113,26 @@ function Boards() {
               flashId === r.user_id ? "ring-2 ring-primary bg-primary/10" : ""
             }`}
           >
-            <div className={`w-10 text-center font-display text-2xl ${i < 3 ? "text-primary" : "text-muted-foreground"}`}>
+            <div className={`w-10 shrink-0 text-center font-display text-2xl ${i < 3 ? "text-primary" : "text-muted-foreground"}`}>
               {i + 1}
             </div>
             <BeastAvatar species={r.species} avatarUrl={r.avatar_url} name={r.display_name} />
-            <div className="flex-1">
-              <div className="font-display text-xl text-primary">{r.display_name} <span className="text-sm text-muted-foreground ml-2">· {r.name}</span></div>
+            <div className="flex-1 min-w-0">
+              <div className="font-display text-xl text-primary truncate">{r.display_name} <span className="text-sm text-muted-foreground ml-2">· {r.name}</span></div>
               <div className="text-xs text-muted-foreground tracking-widest mt-1">{STAGE_TITLES[r.evolution_stage]}</div>
             </div>
-            <div className="font-display text-2xl text-primary">
+            <div className="font-display text-2xl text-primary shrink-0 w-20 text-right">
               {tab === "attr" && totalAttr(r)}
               {tab === "power" && r.battle_power}
               {tab === "streak" && `${r.streak_days ?? 0} 日`}
             </div>
-            {user && r.user_id !== user.id && (
-              <Button
-                size="sm"
-                onClick={() => nav({ to: "/arena", search: { vs: r.user_id } })}
-                className="font-display tracking-widest"
-              >
-                切磋
-              </Button>
-            )}
+            <Button
+              size="sm"
+              onClick={() => nav({ to: "/arena", search: { vs: r.user_id } })}
+              className={`font-display tracking-widest shrink-0 w-20 ${user && r.user_id === user.id ? "invisible" : ""}`}
+            >
+              切磋
+            </Button>
           </div>
         ))}
         {rows.length === 0 && <div className="p-12 text-center text-muted-foreground">榜单虚位以待</div>}
