@@ -226,6 +226,11 @@ function AuthPage() {
   function cancelOverwrite() {
     setOverwriteOpen(false);
     setPendingAction(null);
+    // 用户拒绝覆盖，但旧游客缓存仍在 —— 重新弹出「继续 / 新建」选择，
+    // 避免用户被困在登录页无法回到旧账号
+    if (loadGuestSession()) {
+      setGuestPromptOpen(true);
+    }
   }
 
   async function confirmOverwrite() {
