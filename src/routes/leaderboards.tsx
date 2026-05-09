@@ -21,9 +21,6 @@ function Boards() {
   const [rows, setRows] = useState<Row[]>([]);
 
   useEffect(() => {
-    if (!loading && !user) nav({ to: "/auth" });
-  }, [loading, user, nav]);
-  useEffect(() => {
     if (!onbLoading && user && !onboarded) {
       toast.message("请先完成新手修行");
       nav({ to: "/pet" });
