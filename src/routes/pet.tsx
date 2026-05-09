@@ -69,9 +69,17 @@ function PetPage() {
       if (!p) {
         const { randomBeast } = await import("@/lib/beasts");
         const name = randomBeast();
+        // 兜底：触发器未建宠物时，把新宠物排到当前榜尾
+        const { data: maxRow } = await supabase
+          .from("pets")
+          .select("rank")
+          .order("rank", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        const nextRank = ((maxRow as any)?.rank ?? 0) + 1;
         const { data } = await supabase
           .from("pets")
-          .insert({ user_id: user.id, name, species: name })
+          .insert({ user_id: user.id, name, species: name, rank: nextRank })
           .select()
           .maybeSingle();
         p = data;
