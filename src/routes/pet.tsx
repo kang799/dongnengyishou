@@ -4,6 +4,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { canEvolve, computeBattlePower, evolutionThreshold, STAGE_TITLES, totalAttr } from "@/lib/beasts";
+import { getBeastIcon } from "@/lib/beast-icons";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/pet")({
@@ -120,6 +121,7 @@ function PetPage() {
   const threshold = evolutionThreshold(pet.evolution_stage);
   const stageName = STAGE_TITLES[pet.evolution_stage] ?? "鸿蒙创世";
   const evolvable = canEvolve(pet.evolution_stage, pet.strength, pet.speed, pet.vitality);
+  const beastIcon = getBeastIcon(pet.species);
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-5xl space-y-8">
@@ -133,7 +135,15 @@ function PetPage() {
             <div className="text-sm text-muted-foreground tracking-widest">出自《山海经》· {pet.species}</div>
             <div className="my-8 flex items-center justify-center">
               <div className="w-44 h-44 rounded-full bg-gradient-to-br from-primary/30 to-accent/20 flex items-center justify-center shadow-[0_0_60px_-10px_var(--cinnabar)]">
-                <span className="font-display text-8xl text-primary/90 select-none">兽</span>
+                {beastIcon ? (
+                  <img
+                    src={beastIcon}
+                    alt={pet.species}
+                    className="w-36 h-36 object-contain select-none"
+                  />
+                ) : (
+                  <span className="font-display text-8xl text-primary/90 select-none">兽</span>
+                )}
               </div>
             </div>
             <div className="flex justify-center gap-6 text-sm font-display tracking-widest">
