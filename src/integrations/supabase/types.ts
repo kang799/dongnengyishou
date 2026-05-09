@@ -139,6 +139,7 @@ export type Database = {
           battle_power: number
           created_at: string
           evolution_stage: number
+          free_points: number
           id: string
           losses: number
           name: string
@@ -153,6 +154,7 @@ export type Database = {
           battle_power?: number
           created_at?: string
           evolution_stage?: number
+          free_points?: number
           id?: string
           losses?: number
           name: string
@@ -167,6 +169,7 @@ export type Database = {
           battle_power?: number
           created_at?: string
           evolution_stage?: number
+          free_points?: number
           id?: string
           losses?: number
           name?: string
@@ -221,12 +224,17 @@ export type Database = {
     }
     Functions: {
       accept_friend_request: { Args: { p_from: string }; Returns: undefined }
+      allocate_points: {
+        Args: { p_spd: number; p_str: number; p_vit: number }
+        Returns: Json
+      }
       apply_exercise: {
         Args: { p_exercise: string; p_reps: number }
         Returns: undefined
       }
       cleanup_inactive_guests: { Args: never; Returns: number }
       decline_friend_request: { Args: { p_from: string }; Returns: undefined }
+      evolve_pet: { Args: never; Returns: Json }
       is_friend: { Args: { a: string; b: string }; Returns: boolean }
       random_ancient_name: { Args: never; Returns: string }
       remove_friend: { Args: { p_other: string }; Returns: undefined }
