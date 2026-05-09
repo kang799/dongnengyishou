@@ -5,16 +5,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { usePoseCounter, type ExerciseType } from "@/hooks/use-pose-counter";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import iconSpeed from "@/assets/icon-speed.png";
+import iconStrength from "@/assets/icon-strength.png";
+import iconVitality from "@/assets/icon-vitality.png";
 
 export const Route = createFileRoute("/train")({
   head: () => ({ meta: [{ title: "修行 · 动能异兽" }] }),
   component: TrainPage,
 });
 
-const EXERCISES: { id: ExerciseType; kanji: string; title: string; stat: string; desc: string }[] = [
-  { id: "squat", kanji: "速", title: "深蹲", stat: "speed", desc: "+1 速度 / 次（提升闪避）" },
-  { id: "pushup", kanji: "力", title: "俯卧撑", stat: "strength", desc: "+1 力量 / 次（提升攻击）" },
-  { id: "situp", kanji: "体", title: "仰卧起坐", stat: "vitality", desc: "+1 体质 / 次（提升血量）" },
+const EXERCISES: { id: ExerciseType; icon: string; title: string; stat: string; desc: string }[] = [
+  { id: "squat", icon: iconSpeed, title: "深蹲", stat: "speed", desc: "+1 速度 / 次（提升闪避）" },
+  { id: "pushup", icon: iconStrength, title: "俯卧撑", stat: "strength", desc: "+1 力量 / 次（提升攻击）" },
+  { id: "situp", icon: iconVitality, title: "仰卧起坐", stat: "vitality", desc: "+1 体质 / 次（提升血量）" },
 ];
 
 function TrainPage() {
@@ -112,7 +115,7 @@ function TrainPage() {
             } ${active && exercise !== e.id ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             <div className="flex items-center gap-3">
-              <span className="font-display text-5xl text-primary">{e.kanji}</span>
+              <img src={e.icon} alt={e.title} className="w-16 h-16 object-contain shrink-0" />
               <div>
                 <div className="font-display text-xl tracking-widest">{e.title}</div>
                 <div className="text-xs text-muted-foreground mt-1">{e.desc}</div>
