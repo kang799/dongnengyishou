@@ -119,6 +119,7 @@ export type Database = {
           is_guest: boolean
           last_active_at: string
           last_checkin_date: string | null
+          onboarded_at: string | null
           streak_days: number
         }
         Insert: {
@@ -129,6 +130,7 @@ export type Database = {
           is_guest?: boolean
           last_active_at?: string
           last_checkin_date?: string | null
+          onboarded_at?: string | null
           streak_days?: number
         }
         Update: {
@@ -139,6 +141,7 @@ export type Database = {
           is_guest?: boolean
           last_active_at?: string
           last_checkin_date?: string | null
+          onboarded_at?: string | null
           streak_days?: number
         }
         Relationships: []

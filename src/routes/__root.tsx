@@ -11,6 +11,10 @@ import {
 import appCss from "../styles.css?url";
 import { Toaster } from "sonner";
 import { SiteHeader } from "@/components/site-header";
+import { OnboardingProvider } from "@/components/onboarding/OnboardingProvider";
+import { WelcomeCarousel } from "@/components/onboarding/WelcomeCarousel";
+import { SpotlightTour } from "@/components/onboarding/SpotlightTour";
+import { OnboardingTaskBar } from "@/components/onboarding/OnboardingTaskBar";
 
 function NotFoundComponent() {
   return (
@@ -119,16 +123,21 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen flex flex-col">
-        <SiteHeader />
-        <main className="flex-1">
-          <Outlet />
-        </main>
-        <footer className="text-center text-xs text-muted-foreground py-6 font-display tracking-widest">
-          · 异兽录 · 以汗水化神兽 ·
-        </footer>
-      </div>
-      <Toaster position="top-center" richColors />
+      <OnboardingProvider>
+        <div className="min-h-screen flex flex-col">
+          <SiteHeader />
+          <OnboardingTaskBar />
+          <main className="flex-1">
+            <Outlet />
+          </main>
+          <footer className="text-center text-xs text-muted-foreground py-6 font-display tracking-widest">
+            · 异兽录 · 以汗水化神兽 ·
+          </footer>
+        </div>
+        <WelcomeCarousel />
+        <SpotlightTour />
+        <Toaster position="top-center" richColors />
+      </OnboardingProvider>
     </QueryClientProvider>
   );
 }

@@ -126,7 +126,7 @@ function PetPage() {
     <div className="container mx-auto px-4 py-10 max-w-5xl space-y-8">
       <div className="grid md:grid-cols-[1.1fr_1fr] gap-6">
         {/* Pet portrait */}
-        <div className="ink-card rounded-3xl p-8 relative overflow-hidden">
+        <div data-tour="pet-portrait" className="ink-card rounded-3xl p-8 relative overflow-hidden">
           <div className="absolute top-6 right-6 seal text-sm">{stageName}</div>
           <div className="text-center">
             <div className="text-xs tracking-[0.5em] text-muted-foreground mb-3">道号 · {profile.display_name}</div>
@@ -146,7 +146,7 @@ function PetPage() {
         </div>
 
         {/* Stats */}
-        <div className="ink-card rounded-3xl p-8 space-y-6">
+        <div data-tour="pet-stats" className="ink-card rounded-3xl p-8 space-y-6">
           <h2 className="font-display text-2xl tracking-widest border-b border-foreground/15 pb-3">三脉真气</h2>
           <StatBar label="力量 · 攻" value={pet.strength} threshold={threshold} />
           <StatBar label="速度 · 闪" value={pet.speed} threshold={threshold} />
@@ -164,7 +164,7 @@ function PetPage() {
             </Button>
           </div>
           <div className="pt-3 grid grid-cols-2 gap-3">
-            <Link to="/train" className="block">
+            <Link to="/train" className="block" data-tour="pet-go-train">
               <Button variant="outline" className="w-full font-display tracking-widest">前往修行</Button>
             </Link>
             <Link to="/arena" className="block">
