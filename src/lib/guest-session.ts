@@ -6,11 +6,28 @@ export type GuestSessionCache = {
   refresh_token: string;
   user_id: string;
   created_at: number;
+  onboarded_at?: string | null;
 };
 
 export function saveGuestSession(s: Omit<GuestSessionCache, "created_at">) {
   try {
-    localStorage.setItem(KEY, JSON.stringify({ ...s, created_at: Date.now() }));
+    const prev = loadGuestSession();
+    // 保留之前的 onboarded_at，除非显式传入
+    const merged: GuestSessionCache = {
+      ...s,
+      onboarded_at: s.onboarded_at ?? prev?.onboarded_at ?? null,
+      created_at: Date.now(),
+    };
+    localStorage.setItem(KEY, JSON.stringify(merged));
+  } catch {}
+}
+
+export function markGuestOnboarded(userId: string) {
+  try {
+    const v = loadGuestSession();
+    if (!v || v.user_id !== userId) return;
+    v.onboarded_at = new Date().toISOString();
+    localStorage.setItem(KEY, JSON.stringify(v));
   } catch {}
 }
 

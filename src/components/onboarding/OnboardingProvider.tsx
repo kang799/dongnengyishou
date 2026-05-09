@@ -9,6 +9,7 @@ import {
 } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
+import { loadGuestSession, markGuestOnboarded } from "@/lib/guest-session";
 
 type OnboardingCtx = {
   loading: boolean;
@@ -61,7 +62,17 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         setFetched(true);
         return;
       }
-      setOnboardedAt((data as any)?.onboarded_at ?? null);
+      let dbOnboarded: string | null = (data as any)?.onboarded_at ?? null;
+      // 游客兜底：如果缓存里同一 user_id 已完成引导，则认为已完成
+      if (!dbOnboarded) {
+        const guest = loadGuestSession();
+        if (guest && guest.user_id === user.id && guest.onboarded_at) {
+          dbOnboarded = guest.onboarded_at;
+          // 顺手补写一次数据库
+          void supabase.from("profiles").update({ onboarded_at: dbOnboarded }).eq("id", user.id);
+        }
+      }
+      setOnboardedAt(dbOnboarded);
       setFetched(true);
     })();
     return () => { cancelled = true; };
@@ -78,6 +89,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
     const now = new Date().toISOString();
     setOnboardedAt(now);
     setWelcomeOpen(false);
+    markGuestOnboarded(user.id);
     const { error } = await supabase.from("profiles").update({ onboarded_at: now }).eq("id", user.id);
     if (error) console.warn("markOnboarded failed", error);
   }, [user]);
