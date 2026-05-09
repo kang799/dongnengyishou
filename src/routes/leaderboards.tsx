@@ -14,7 +14,7 @@ export const Route = createFileRoute("/leaderboards")({
 type Row = { user_id: string; name: string; species: string; strength: number; speed: number; vitality: number; battle_power: number; evolution_stage: number; display_name?: string; streak_days?: number };
 
 function Boards() {
-  const { user, loading } = useAuth();
+  const { user } = useAuth();
   const { onboarded, loading: onbLoading } = useOnboarding();
   const nav = useNavigate();
   const [tab, setTab] = useState<"attr" | "power" | "streak">("attr");
