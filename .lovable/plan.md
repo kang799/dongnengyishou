@@ -1,22 +1,26 @@
 ## 目标
-首页 `src/routes/index.tsx` 的"三式修行"区块仍在用红色大字 `速 / 力 / 体`，未替换为之前生成的水墨图标。本次把它们换成 `icon-speed.png` / `icon-strength.png` / `icon-vitality.png`。
+为《山海经》60 种异兽各生成一张水墨白描透明 PNG logo，并在「我的异兽」页中央与「封神榜」每行展示。
 
-## 改动
-仅修改 `src/routes/index.tsx`：
+## 资源生成
+- 使用 `imagegen--generate_image`（fast 档，透明背景 PNG，512×512）批量生成 60 张图。
+- 风格 prompt 模板（与现有 `icon-speed/strength/vitality` 一致）：
+  > Traditional Chinese ink wash line drawing of the mythical beast 「{name}」 from Shan Hai Jing, sumi-e baimiao style, single black brush strokes, minimal, centered, on a solid white background, no text
+- 文件命名：`src/assets/beasts/{slug}.png`，slug 使用拼音化简（如 `taotie.png`）。
 
-1. 顶部新增图片导入：
-   - `iconSpeed` ← `@/assets/icon-speed.png`
-   - `iconStrength` ← `@/assets/icon-strength.png`
-   - `iconVitality` ← `@/assets/icon-vitality.png`
+## 索引模块
+新建 `src/lib/beast-icons.ts`：
+- 使用 Vite `import.meta.glob('../assets/beasts/*.png', { eager: true, as: 'url' })` 自动收集所有图。
+- 导出 `getBeastIcon(species: string): string | null`，按中文名 → slug 映射查表；找不到时返回 `null`。
 
-2. `Way` 组件签名：把 `kanji: string` 改为 `icon: string`，将原 `<div>{kanji}</div>` 替换为 `<img src={icon} className="w-16 h-16 object-contain shrink-0" alt="" />`，保留卡片其余结构。
+## 页面接入
+1. **`src/routes/pet.tsx`** —— 中央圆形里的大「兽」字替换为 `<img src={getBeastIcon(pet.species)}>`，保留圆形渐变与光晕背景；找不到图时回落到原「兽」字。
+2. **`src/routes/leaderboards.tsx`** —— 在每行 `名字 · 道友` 左侧加一个 40×40 圆形头像 `<img>`，使用 `getBeastIcon(r.species)`；同样回落到「兽」字占位。「我」的高亮行同步加。
 
-3. "三式修行" 区块三张卡片调用：
-   - 深蹲 → `icon={iconSpeed}`
-   - 俯卧撑 → `icon={iconStrength}`
-   - 仰卧起坐 → `icon={iconVitality}`
+## 不改动
+- 数据库、RLS、`beasts.ts` 名录、其他页面、配色与字体均保持不变。
+- 首页「三式修行」「四殿」、训练页、引导轮播保持当前形态。
 
-## 不动
-- "四殿可游" 区块（兽/练/斗/榜）保持现有汉字样式，不在本次需求内。
-- 训练页与欢迎轮播已替换，无需重复。
-- 颜色 token、字体、布局、文案、后端逻辑均不变。
+## 技术细节
+- 60 张图生成耗时较长，将串行调用以避免速率限制；预计约 5–10 分钟。
+- 图片体积控制：512×512 透明 PNG，预计每张 < 80KB，总量约 3–5MB，由 Vite 按需打包/懒加载。
+- slug 映射表内置在 `beast-icons.ts` 顶部常量中，便于以后微调。
