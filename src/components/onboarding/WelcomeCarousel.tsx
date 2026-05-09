@@ -8,14 +8,14 @@ import heroBeast from "@/assets/hero-kinetic-beast.png";
 const SLIDES = [
   {
     seal: "壹",
-    title: "以汗水 · 唤醒异兽",
-    body: "你结契一只山海经异兽。每一次心跳，都是它的心跳。",
+    title: "异兽降世 · 与你结契",
+    body: "你将结契一只山海经异兽。它的每一次心跳，皆源自你的汗水。",
     art: <img src={heroBeast} alt="" className="w-full h-full object-cover" />,
   },
   {
     seal: "贰",
     title: "三式修行 · 喂养真气",
-    body: "深蹲炼速、俯卧撑炼力、仰卧起坐炼体。摄像头自动计数，每动一次 +1。",
+    body: "深蹲炼速、俯卧撑炼力、仰卧起坐炼体。摄像头自动识别动作，每动一次 +1 真气。",
     art: (
       <div className="grid grid-cols-3 gap-4 p-10 h-full place-items-center">
         {[
@@ -34,7 +34,7 @@ const SLIDES = [
   {
     seal: "叁",
     title: "破壳进化 · 阶位飞升",
-    body: "三脉真气各满 10 → 100 → 1000，异兽即破壳进化为更高神格。",
+    body: "三脉真气依次满 10 → 100 → 1000 → 10000 → 100000，异兽即破壳重生，进化为更高神格。",
     art: (
       <div className="flex flex-col gap-2 p-8 h-full justify-center font-display tracking-widest">
         {["初生灵兽 · 起", "化形异兽 · 各满 10", "通灵神兽 · 各满 100", "上古凶兽 · 各满 1000", "天地圣兽 · 各满 10000", "鸿蒙创世 · 各满 100000"].map(
@@ -50,8 +50,8 @@ const SLIDES = [
   },
   {
     seal: "肆",
-    title: "封神榜 · 道友切磋",
-    body: "登斗兽台与天下道友捉对厮杀，问鼎属性、战力、打卡三大封神榜。",
+    title: "封神榜 · 三榜并立",
+    body: "属性榜较真气总和，战力榜较综合战斗值，打卡榜较连续修行天数。全服群雄逐鹿，等你登顶。",
     art: (
       <div className="p-10 h-full flex flex-col items-center justify-center text-center gap-4">
         <div className="font-display text-6xl text-primary">榜</div>
@@ -60,10 +60,26 @@ const SLIDES = [
       </div>
     ),
   },
+  {
+    seal: "伍",
+    title: "切磋斗兽 · 取而代之",
+    body: "在封神榜任意行点「切磋」，即可与该道友的异兽厮杀一场。胜则取代其战力榜排名，败则需再去修行。",
+    art: (
+      <div className="p-10 h-full flex flex-col items-center justify-center text-center gap-4">
+        <div className="flex items-center gap-6 font-display">
+          <span className="text-5xl text-primary">兽</span>
+          <span className="text-3xl text-muted-foreground tracking-[0.4em]">VS</span>
+          <span className="text-5xl text-primary">兽</span>
+        </div>
+        <div className="font-display text-lg tracking-[0.4em] text-foreground/80">斗 · 兽 · 台</div>
+        <div className="text-xs text-muted-foreground tracking-widest">封神榜 → 切磋 → 一战定高下</div>
+      </div>
+    ),
+  },
 ] as const;
 
 export function WelcomeCarousel() {
-  const { welcomeOpen, closeWelcome, startTour, hasUser } = useOnboarding();
+  const { welcomeOpen, closeWelcome, hasUser } = useOnboarding();
   const nav = useNavigate();
   const [idx, setIdx] = useState(0);
 
@@ -74,8 +90,6 @@ export function WelcomeCarousel() {
 
   function handleStart() {
     closeWelcome();
-    startTour();
-    // 引导从 /pet 开始
     nav({ to: "/pet" });
   }
 
@@ -85,7 +99,6 @@ export function WelcomeCarousel() {
         className="max-w-3xl p-0 overflow-hidden border-foreground/15 bg-background [&>button]:hidden"
       >
         <div className="relative">
-          {/* 跳过 */}
           <button
             onClick={closeWelcome}
             className="absolute top-3 right-4 z-10 text-xs font-display tracking-widest text-foreground/50 hover:text-foreground"
@@ -93,14 +106,12 @@ export function WelcomeCarousel() {
             跳过 ›
           </button>
 
-          {/* 视觉区 */}
           <div className="relative h-[280px] md:h-[340px] overflow-hidden bg-gradient-to-b from-secondary/30 to-background">
             {slide.art}
             <div className="absolute top-4 left-4 seal text-xs">{slide.seal}</div>
             <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent pointer-events-none" />
           </div>
 
-          {/* 文案 */}
           <div className="px-8 py-6 text-center space-y-3">
             <h2 className="font-display text-3xl tracking-widest">{slide.title}</h2>
             <p className="text-sm md:text-base text-foreground/75 leading-loose max-w-xl mx-auto">
@@ -108,7 +119,6 @@ export function WelcomeCarousel() {
             </p>
           </div>
 
-          {/* 圆点 */}
           <div className="flex justify-center gap-2 pb-3">
             {SLIDES.map((_, i) => (
               <span
@@ -120,7 +130,6 @@ export function WelcomeCarousel() {
             ))}
           </div>
 
-          {/* 操作 */}
           <div className="flex items-center justify-between gap-3 px-8 pb-6 pt-1">
             <Button
               variant="ghost"
@@ -136,7 +145,7 @@ export function WelcomeCarousel() {
                 onClick={handleStart}
                 className="font-display tracking-[0.3em] px-8"
               >
-                开 始 第 一 课
+                入 山 修 行
               </Button>
             ) : (
               <Button
