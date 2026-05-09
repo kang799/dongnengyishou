@@ -50,3 +50,17 @@ export function clearSupabaseLocalAuth() {
     keysToRemove.forEach((k) => localStorage.removeItem(k));
   } catch {}
 }
+
+const ONBOARDED_KEY = "yishou.onboarded";
+
+export function markOnboardedLocal() {
+  try { localStorage.setItem(ONBOARDED_KEY, "1"); } catch {}
+}
+
+export function hasOnboardedLocal(): boolean {
+  try { return localStorage.getItem(ONBOARDED_KEY) === "1"; } catch { return false; }
+}
+
+export function clearOnboardedLocal() {
+  try { localStorage.removeItem(ONBOARDED_KEY); } catch {}
+}
