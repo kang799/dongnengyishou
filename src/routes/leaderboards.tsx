@@ -23,9 +23,7 @@ function Boards() {
   useEffect(() => {
     (async () => {
       const { data: pets } = await supabase.from("pets").select("*").limit(100);
-      const { data: profs } = await supabase
-        .from("profiles_public" as any)
-        .select("id, display_name, streak_days");
+      const { data: profs } = await supabase.from("profiles").select("*");
       const profMap = new Map((profs ?? []).map((p: any) => [p.id, p]));
       let merged: Row[] = (pets ?? []).map((p: any) => ({
         ...p,

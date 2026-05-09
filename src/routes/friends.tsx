@@ -36,11 +36,7 @@ function FriendsPage() {
 
   async function load() {
     if (!user) return;
-    let prof = supabase
-      .from("profiles_public" as any)
-      .select("id, display_name, streak_days, avatar_url")
-      .neq("id", user.id)
-      .limit(50);
+    let prof = supabase.from("profiles").select("*").neq("id", user.id).limit(50);
     if (q.trim()) prof = prof.ilike("display_name", `%${q.trim()}%`);
     const { data: profs } = await prof;
     const ids = (profs ?? []).map((p: any) => p.id);
