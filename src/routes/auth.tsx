@@ -1,11 +1,19 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { randomBeast } from "@/lib/beasts";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { saveGuestSession, loadGuestSession, clearGuestSession } from "@/lib/guest-session";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({ meta: [{ title: "招神入册 · 动能异兽" }] }),
@@ -23,6 +31,49 @@ function AuthPage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const nav = useNavigate();
+  const [guestPromptOpen, setGuestPromptOpen] = useState(false);
+  const [guestRestoring, setGuestRestoring] = useState(false);
+
+  useEffect(() => {
+    if (loadGuestSession()) setGuestPromptOpen(true);
+  }, []);
+
+  async function continueAsGuest() {
+    const cache = loadGuestSession();
+    if (!cache) { setGuestPromptOpen(false); return; }
+    setGuestRestoring(true);
+    try {
+      const { error } = await supabase.auth.setSession({
+        access_token: cache.access_token,
+        refresh_token: cache.refresh_token,
+      });
+      if (error) throw error;
+      // refresh & save new tokens
+      const { data } = await supabase.auth.getSession();
+      if (data.session) {
+        saveGuestSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+          user_id: data.session.user.id,
+        });
+      }
+      toast.success("已恢复上次游客身份");
+      setGuestPromptOpen(false);
+      nav({ to: "/pet" });
+    } catch (err: any) {
+      console.warn("restore guest failed", err);
+      clearGuestSession();
+      toast.error("游客身份已失效，请新建账号");
+      setGuestPromptOpen(false);
+    } finally {
+      setGuestRestoring(false);
+    }
+  }
+
+  function declineGuest() {
+    clearGuestSession();
+    setGuestPromptOpen(false);
+  }
 
   function pickAvatar(file: File | null) {
     if (!file) return;
@@ -65,6 +116,13 @@ function AuthPage() {
         if (url) {
           await supabase.from("profiles").update({ avatar_url: url }).eq("id", data.user.id);
         }
+      }
+      if (data.session) {
+        saveGuestSession({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+          user_id: data.session.user.id,
+        });
       }
       toast.success("已以游客身份入山，30 天未登录将自动消散");
       nav({ to: "/pet" });
@@ -110,6 +168,7 @@ function AuthPage() {
             await supabase.from("profiles").update({ avatar_url: url }).eq("id", data.user.id);
           }
         }
+        clearGuestSession();
         toast.success(`异兽 ${finalPetName} 已与你结契`);
         nav({ to: "/pet" });
       } else {
