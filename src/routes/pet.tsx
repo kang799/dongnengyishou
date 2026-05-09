@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { canEvolve, computeBattlePower, evolutionThreshold, STAGE_TITLES, totalAttr } from "@/lib/beasts";
 import { toast } from "sonner";
 
@@ -191,7 +190,9 @@ function StatBar({ label, value, threshold }: { label: string; value: number; th
         <span>{label}</span>
         <span className="text-primary">{value} <span className="text-muted-foreground text-xs">/ {threshold}</span></span>
       </div>
-      <Progress value={pct} className="h-2" />
+      <div className="ink-progress">
+        <div className="ink-progress-fill" style={{ width: `${pct}%` }} />
+      </div>
     </div>
   );
 }
