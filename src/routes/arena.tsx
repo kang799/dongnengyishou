@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import type { BattleEvent } from "@/lib/battle";
 import { STAGE_TITLES } from "@/lib/beasts";
 import { toast } from "sonner";
-import { useOnboarding } from "@/components/onboarding/OnboardingProvider";
+import { z } from "zod";
 
 export const Route = createFileRoute("/arena")({
   head: () => ({ meta: [{ title: "斗兽台 · 动能异兽" }] }),
+  validateSearch: (s) => z.object({ vs: z.string().uuid().optional() }).parse(s),
   component: Arena,
 });
 
@@ -22,7 +23,7 @@ type Pet = {
 function Arena() {
   const { user, loading } = useAuth();
   const nav = useNavigate();
-  const { onboarded, loading: onbLoading } = useOnboarding();
+  const { vs } = Route.useSearch();
   const [me, setMe] = useState<Pet | null>(null);
   const [opponents, setOpponents] = useState<Pet[]>([]);
   const [battleEvents, setBattleEvents] = useState<BattleEvent[]>([]);
@@ -33,13 +34,6 @@ function Arena() {
   useEffect(() => {
     if (!loading && !user) nav({ to: "/auth" });
   }, [loading, user, nav]);
-
-  useEffect(() => {
-    if (!onbLoading && user && !onboarded) {
-      toast.message("请先完成新手修行");
-      nav({ to: "/pet" });
-    }
-  }, [onbLoading, user, onboarded, nav]);
 
   async function load() {
     if (!user) return;
@@ -52,6 +46,11 @@ function Arena() {
       .limit(20);
     if (my) setMe(my as Pet);
     setOpponents((opps as Pet[]) ?? []);
+    // 若带 vs，自动锁定该对手
+    if (vs) {
+      const { data: target } = await supabase.from("pets").select("*").eq("user_id", vs).maybeSingle();
+      if (target) setOpponent(target as Pet);
+    }
   }
   useEffect(() => { if (user) load(); /* eslint-disable-next-line */ }, [user]);
 
