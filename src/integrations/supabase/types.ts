@@ -143,6 +143,7 @@ export type Database = {
           id: string
           losses: number
           name: string
+          rank: number
           species: string
           speed: number
           strength: number
@@ -158,6 +159,7 @@ export type Database = {
           id?: string
           losses?: number
           name: string
+          rank: number
           species: string
           speed?: number
           strength?: number
@@ -173,6 +175,7 @@ export type Database = {
           id?: string
           losses?: number
           name?: string
+          rank?: number
           species?: string
           speed?: number
           strength?: number
