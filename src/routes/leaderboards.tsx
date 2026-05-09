@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { Crosshair } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { STAGE_TITLES, totalAttr } from "@/lib/beasts";
+import { getBeastIcon } from "@/lib/beast-icons";
 import { useAuth } from "@/hooks/use-auth";
 import { Button } from "@/components/ui/button";
 
@@ -82,6 +83,7 @@ function Boards() {
             <div className="w-10 text-center font-display text-2xl text-primary">
               {myIndex + 1}
             </div>
+            <BeastAvatar species={myRow.species} />
             <div className="flex-1">
               <div className="font-display text-xl text-primary">
                 {myRow.name}
@@ -113,6 +115,7 @@ function Boards() {
             <div className={`w-10 text-center font-display text-2xl ${i < 3 ? "text-primary" : "text-muted-foreground"}`}>
               {i + 1}
             </div>
+            <BeastAvatar species={r.species} />
             <div className="flex-1">
               <div className="font-display text-xl text-primary">{r.name} <span className="text-sm text-muted-foreground ml-2">道友 · {r.display_name}</span></div>
               <div className="text-xs text-muted-foreground tracking-widest mt-1">{STAGE_TITLES[r.evolution_stage]}</div>
@@ -135,6 +138,19 @@ function Boards() {
         ))}
         {rows.length === 0 && <div className="p-12 text-center text-muted-foreground">榜单虚位以待</div>}
       </div>
+    </div>
+  );
+}
+
+function BeastAvatar({ species }: { species: string }) {
+  const icon = getBeastIcon(species);
+  return (
+    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/10 flex items-center justify-center shrink-0 overflow-hidden">
+      {icon ? (
+        <img src={icon} alt={species} className="w-9 h-9 object-contain" />
+      ) : (
+        <span className="font-display text-lg text-primary/80">兽</span>
+      )}
     </div>
   );
 }
