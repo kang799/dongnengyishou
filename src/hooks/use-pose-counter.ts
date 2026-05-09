@@ -440,11 +440,18 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
       // 肩-肘-腕
       const rawElbow = bestAngle(l, 12, 14, 16, 11, 13, 15);
       const elbow = rawElbow == null ? null : smoothAngle("elbow", rawElbow);
-      if (elbow == null) return;
+      if (elbow == null) {
+        updateStatus({ phase: "ready", message: "请进入俯卧姿态，肩肘腕入镜", progress: 0, shoulderVisible: false });
+        return;
+      }
       // 要求身体大致水平：肩与髋 y 接近
       const shoulderY = ((l[11]?.y ?? 0) + (l[12]?.y ?? 0)) / 2;
       const hipY = ((l[23]?.y ?? 0) + (l[24]?.y ?? 0)) / 2;
-      if (Math.abs(shoulderY - hipY) > 0.32) return; // 不是俯卧姿态
+      if (Math.abs(shoulderY - hipY) > 0.32) {
+        updateStatus({ phase: "ready", message: "请进入俯卧姿态，身体保持水平", progress: 0, shoulderVisible: false });
+        return;
+      }
+      const progress = Math.max(0, Math.min(1, (150 - elbow) / (150 - 108)));
       if (stateRef.current === "up" && confirmPose("down", elbow < 108)) {
         stateRef.current = "down";
         stableRef.current.up = 0;
@@ -453,11 +460,18 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
         stableRef.current.down = 0;
         tryCount();
       }
+      const justCounted = performance.now() - lastCountAtRef.current < 600;
+      const msg = justCounted ? "推起完成 +1" : (stateRef.current === "up" ? "屈臂下压" : "推起还原");
+      updateStatus({ phase: "ready", message: msg, progress, shoulderVisible: true });
     } else if (ex === "situp") {
       // 肩-髋-膝
       const rawHip = bestAngle(l, 12, 24, 26, 11, 23, 25);
       const hip = rawHip == null ? null : smoothAngle("hip", rawHip);
-      if (hip == null) return;
+      if (hip == null) {
+        updateStatus({ phase: "ready", message: "请仰卧入镜，膝盖弯起", progress: 0, shoulderVisible: false });
+        return;
+      }
+      const progress = Math.max(0, Math.min(1, (132 - hip) / (132 - 88)));
       if (stateRef.current === "up" && confirmPose("down", hip > 132)) {
         stateRef.current = "down";
         stableRef.current.up = 0;
@@ -466,6 +480,9 @@ export function usePoseCounter(exercise: ExerciseType, active: boolean) {
         stableRef.current.down = 0;
         tryCount();
       }
+      const justCounted = performance.now() - lastCountAtRef.current < 600;
+      const msg = justCounted ? "完成一次 +1" : (stateRef.current === "up" ? "卷腹起身" : "缓慢躺回");
+      updateStatus({ phase: "ready", message: msg, progress, shoulderVisible: true });
     }
   }
 
