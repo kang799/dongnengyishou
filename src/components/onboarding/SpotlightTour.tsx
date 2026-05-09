@@ -43,8 +43,9 @@ export function SpotlightTour() {
         return;
       }
       tries += 1;
-      if (tries < 4) {
-        setTimeout(find, 100);
+      if (tries < 30) {
+        // 路由懒加载 + 数据请求可能让目标元素较晚出现，重试约 6 秒
+        setTimeout(find, 200);
       } else {
         targetRef.current = null;
         setRect(null);
