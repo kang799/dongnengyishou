@@ -148,7 +148,27 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      profiles_public: {
+        Row: {
+          avatar_url: string | null
+          display_name: string | null
+          id: string | null
+          streak_days: number | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          display_name?: string | null
+          id?: string | null
+          streak_days?: number | null
+        }
+        Update: {
+          avatar_url?: string | null
+          display_name?: string | null
+          id?: string | null
+          streak_days?: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       apply_exercise: {
