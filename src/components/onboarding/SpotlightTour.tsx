@@ -61,7 +61,13 @@ export function SpotlightTour() {
     const el = targetRef.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
-    setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+    // 以文档坐标固定（叠加滚动偏移），这样聚光灯随按钮一起滚动，不再吸附视口
+    setRect({
+      top: r.top + window.scrollY,
+      left: r.left + window.scrollX,
+      width: r.width,
+      height: r.height,
+    });
   }
 
   // 事件驱动重算
@@ -82,13 +88,11 @@ export function SpotlightTour() {
     ro.observe(el);
     const mo = new MutationObserver(schedule);
     mo.observe(document.body, { childList: true, subtree: true, attributes: true });
-    window.addEventListener("scroll", schedule, { capture: true, passive: true });
     window.addEventListener("resize", schedule);
 
     return () => {
       ro.disconnect();
       mo.disconnect();
-      window.removeEventListener("scroll", schedule, { capture: true } as any);
       window.removeEventListener("resize", schedule);
     };
   }, [step?.selector, step?.route, pathname]);
@@ -113,15 +117,18 @@ export function SpotlightTour() {
   // 卡片定位（在高亮区域下方，超出视口则放上方）
   const vw = typeof window !== "undefined" ? window.innerWidth : 1024;
   const vh = typeof window !== "undefined" ? window.innerHeight : 768;
+  const scrollY = typeof window !== "undefined" ? window.scrollY : 0;
+  const docH = typeof document !== "undefined" ? document.documentElement.scrollHeight : vh;
   const cardWidth = Math.min(360, vw - 32);
   let cardTop = 0; let cardLeft = 0;
   if (rect) {
+    // rect 现在是文档坐标，卡片定位也用文档坐标
     const below = rect.top + rect.height + PAD + 12;
-    if (below + 200 < vh) cardTop = below;
-    else cardTop = Math.max(16, rect.top - 200 - PAD);
+    if (below + 200 < scrollY + vh) cardTop = below;
+    else cardTop = Math.max(scrollY + 16, rect.top - 200 - PAD);
     cardLeft = Math.max(16, Math.min(vw - cardWidth - 16, rect.left + rect.width / 2 - cardWidth / 2));
   } else {
-    cardTop = vh / 2 - 100;
+    cardTop = scrollY + vh / 2 - 100;
     cardLeft = vw / 2 - cardWidth / 2;
   }
 
@@ -137,7 +144,10 @@ export function SpotlightTour() {
   }
 
   return (
-    <div className="fixed inset-0 z-[60] pointer-events-none">
+    <div
+      className="absolute left-0 top-0 z-[60] pointer-events-none"
+      style={{ width: "100%", height: docH }}
+    >
       {/* 4 块遮罩边框 */}
       {rect ? (
         <>
