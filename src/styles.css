@@ -286,10 +286,10 @@
   .ink-pop { animation: ink-pop 480ms cubic-bezier(.2,.7,.2,1); }
   /* 页面切换墨晕 */
   @keyframes ink-bleed {
-    0% { opacity: 0; filter: blur(10px); transform: scale(.985); }
-    100% { opacity: 1; filter: blur(0); transform: scale(1); }
+    0% { opacity: 0; transform: translateY(4px); }
+    100% { opacity: 1; transform: translateY(0); }
   }
-  .ink-bleed-in { animation: ink-bleed 480ms ease-out; }
+  .ink-bleed-in { animation: ink-bleed 140ms ease-out; }
   .ink-brush {
     position: relative;
   }
