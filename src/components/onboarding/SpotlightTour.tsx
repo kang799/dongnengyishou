@@ -125,7 +125,16 @@ export function SpotlightTour() {
     cardLeft = vw / 2 - cardWidth / 2;
   }
 
-  const showNext = !step.waitForClick;
+  const showNext = !step.waitForClick && !step.confirm;
+
+  function handleConfirmYes() {
+    const el = targetRef.current;
+    if (el) {
+      // 触发目标元素的真实点击（启动摄像头），随后关闭引导
+      el.click();
+    }
+    setTimeout(() => endTour(), 50);
+  }
 
   return (
     <div className="fixed inset-0 z-[60] pointer-events-none">
@@ -163,6 +172,11 @@ export function SpotlightTour() {
         {missing && (
           <p className="text-[11px] text-muted-foreground">（未找到目标元素，可点「下一步」继续）</p>
         )}
+        {step.confirm && !missing && (
+          <p className="text-sm text-foreground font-display tracking-wider pt-1">
+            {step.confirm.question}
+          </p>
+        )}
         <div className="flex items-center justify-between pt-1">
           <span className="text-[11px] text-muted-foreground tracking-widest">
             新手引导 · 跟随指引完成
@@ -175,8 +189,24 @@ export function SpotlightTour() {
               {step.last ? "完 成" : "下 一 步 ›"}
             </button>
           )}
-          {step.waitForClick && !missing && (
+          {step.waitForClick && !missing && !step.confirm && (
             <span className="text-xs font-display tracking-widest text-primary">↑ 点亮处继续</span>
+          )}
+          {step.confirm && !missing && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => endTour()}
+                className="text-sm font-display tracking-widest px-3 py-1.5 rounded-md border border-foreground/20 hover:bg-foreground/5"
+              >
+                {step.confirm.noLabel ?? "否"}
+              </button>
+              <button
+                onClick={handleConfirmYes}
+                className="text-sm font-display tracking-widest px-4 py-1.5 rounded-md bg-primary text-primary-foreground hover:opacity-90"
+              >
+                {step.confirm.yesLabel ?? "是"}
+              </button>
+            </div>
           )}
         </div>
       </div>

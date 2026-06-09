@@ -5,6 +5,8 @@ export type TourStep = {
   body: string;
   /** 等待用户点击高亮元素本身才进入下一步；不显示「下一步」按钮 */
   waitForClick?: boolean;
+  /** 显示「是 / 否」确认；选「是」则触发目标元素点击，选「否」则关闭引导 */
+  confirm?: { question: string; yesLabel?: string; noLabel?: string };
   last?: boolean;
 };
 
@@ -38,8 +40,8 @@ export const TOUR_STEPS: TourStep[] = [
     route: "/train",
     selector: "[data-tour='train-start-btn']",
     title: "启动修行",
-    body: "点此开启摄像头，让异兽与你一同苏醒。",
-    waitForClick: true,
+    body: "摄像头将识别你的动作，每完成一次即为异兽注入一缕真气。",
+    confirm: { question: "是否现在开启摄像头训练异兽？", yesLabel: "是 · 启动", noLabel: "否 · 稍后" },
     last: true,
   },
 ];
